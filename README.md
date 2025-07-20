@@ -114,3 +114,7 @@ The logic for your AI agent should be implemented in the `trading_agent/agent.js
     └── lib/
         └── mcpClient.js  # A copy of the client for the agent
 ```
+
+## License
+
+This project is licensed under the [MIT License](LICENSE).

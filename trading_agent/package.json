@@ -1,16 +1,16 @@
-
 {
-    "name": "trading-agent",
-    "version": "1.0.0",
-    "description": "An independent agent for interacting with a trading benchmark.",
-    "main": "agent.js",
-    "scripts": {
-        "trade": "node agent.js"
-    },
-    "dependencies": {
-        "axios": "^1.10.0",
-        "dotenv": "^17.2.0",
-        "uuid": "^9.0.1",
-        "winston": "^3.13.0"
-    }
+  "name": "trading-agent",
+  "version": "1.0.0",
+  "description": "An independent agent for interacting with a trading benchmark.",
+  "main": "agent.js",
+  "scripts": {
+    "trade": "node agent.js"
+  },
+  "dependencies": {
+    "axios": "^1.10.0",
+    "dotenv": "^17.2.0",
+    "uuid": "^9.0.1",
+    "winston": "^3.13.0"
+  },
+  "license": "MIT"
 }
