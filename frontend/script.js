@@ -110,6 +110,7 @@ function App() {
     return (
       <main className="max-w-md mx-auto py-10 flex flex-col space-y-4 text-gray-900 dark:text-gray-100">
         <h2 className="text-xl font-bold">Enter Alpaca Credentials</h2>
+        <p className="text-sm">Provide your API key and secret or add <code>APCA_API_KEY</code> and <code>APCA_API_SECRET</code> to a <code>.env</code> file.</p>
         <input className="border rounded-md p-2 focus:outline-none focus:ring dark:border-gray-700 dark:bg-gray-800" placeholder="API Key" value={apiKey} onChange={e => setApiKey(e.target.value)} />
         <input className="border rounded-md p-2 focus:outline-none focus:ring dark:border-gray-700 dark:bg-gray-800" placeholder="API Secret" value={apiSecret} onChange={e => setApiSecret(e.target.value)} />
         <button className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md" onClick={saveKeys}>Save</button>
