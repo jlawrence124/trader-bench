@@ -5,6 +5,10 @@ const { spawn } = require('child_process');
 const alpaca = require('./src/alpacaService');
 require('dotenv/config');
 
+// provide defaults so missing MCP vars don't block the UI
+process.env.MCP_PORT = process.env.MCP_PORT || '4000';
+process.env.MCP_SERVER_URL = process.env.MCP_SERVER_URL || `http://localhost:${process.env.MCP_PORT}/rpc`;
+
 function tailFile(filePath, maxBytes = 65536) {
   const { size } = fs.statSync(filePath);
   const start = Math.max(0, size - maxBytes);
@@ -32,15 +36,7 @@ let benchmarkProcess = null;
 
 // ----- Utility Endpoints -----
 app.get('/api/env-check', (req, res) => {
-  const vars = [
-    'APCA_API_KEY',
-    'APCA_API_SECRET',
-    'APCA_API_BASE_URL',
-    'MCP_PORT',
-    'AGENT_CMD',
-    'MCP_SERVER_URL',
-    'MODEL_NAME'
-  ];
+  const vars = ['APCA_API_KEY', 'APCA_API_SECRET', 'AGENT_CMD'];
   const missing = vars.filter(v => !process.env[v]);
   const hasKeys = missing.length === 0;
   res.json({ hasKeys, missing });
@@ -78,6 +74,10 @@ app.post('/api/set-env-var', (req, res) => {
     return res.status(400).json({ error: 'Benchmark is running' });
   }
   process.env[name] = value;
+  if (name === 'AGENT_CMD' && !process.env.MODEL_NAME) {
+    const model = value.split(/\s+/)[0].toLowerCase();
+    process.env.MODEL_NAME = model;
+  }
   let env = '';
   if (fs.existsSync('.env')) env = fs.readFileSync('.env', 'utf8');
   const line = new RegExp(`^${name}=.*$`, 'm');
@@ -85,6 +85,10 @@ app.post('/api/set-env-var', (req, res) => {
     env = env.replace(line, `${name}=${value}`);
   } else {
     env += `\n${name}=${value}`;
+  }
+  if (name === 'AGENT_CMD' && !/MODEL_NAME=/.test(env)) {
+    const model = process.env.MODEL_NAME;
+    env += `\nMODEL_NAME=${model}`;
   }
   fs.writeFileSync('.env', env.trim() + '\n');
   res.json({ success: true });

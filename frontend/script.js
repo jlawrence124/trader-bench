@@ -30,7 +30,7 @@ function App() {
 
   const infoMap = {
     MCP_PORT: 'Port for the HTTP MCP server (e.g., 4000)',
-    AGENT_CMD: 'Command to launch your agent (e.g., "node trading_agent/agent.js")',
+    AGENT_CMD: 'CLI command for your agent (gemini, codex, claude, opencode or other)',
     MCP_SERVER_URL: 'RPC URL used by the agent (e.g., http://localhost:4000/rpc)',
     MODEL_NAME: 'Name used to label each run',
     APCA_API_KEY: 'Your Alpaca API key',
@@ -164,6 +164,18 @@ function App() {
 
   if (!hasKeys) {
     const saveVar = (name) => {
+      if (name === 'AGENT_CMD') {
+        const cmd = missingInputs.AGENT_CMD === 'other' ? missingInputs.AGENT_CMD_OTHER : missingInputs.AGENT_CMD;
+        if (!cmd) return;
+        fetch('/api/set-env-var', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ name, value: cmd })
+        }).then(() => {
+          setMissingVars(v => v.filter(x => x !== name));
+        });
+        return;
+      }
       if (!missingInputs[name]) return;
       fetch('/api/set-env-var', {
         method: 'POST',
@@ -200,12 +212,37 @@ function App() {
         )}
         {missingVars.filter(v => !['APCA_API_KEY','APCA_API_SECRET'].includes(v)).map(name => (
           <div key={name} className="flex items-center space-x-2">
-            <input
-              className="border rounded-md p-2 flex-1 dark:border-gray-700 dark:bg-gray-800"
-              placeholder={name}
-              value={missingInputs[name] || ''}
-              onChange={e => setMissingInputs(m => ({ ...m, [name]: e.target.value }))}
-            />
+            {name === 'AGENT_CMD' ? (
+              <>
+                <select
+                  className="border rounded-md p-2 flex-1 dark:border-gray-700 dark:bg-gray-800"
+                  value={missingInputs.AGENT_CMD || ''}
+                  onChange={e => setMissingInputs(m => ({ ...m, AGENT_CMD: e.target.value }))}
+                >
+                  <option value="">Select CLI</option>
+                  <option value="gemini">gemini</option>
+                  <option value="codex">codex</option>
+                  <option value="claude">claude</option>
+                  <option value="opencode">opencode</option>
+                  <option value="other">Other...</option>
+                </select>
+                {missingInputs.AGENT_CMD === 'other' && (
+                  <input
+                    className="border rounded-md p-2 flex-1 dark:border-gray-700 dark:bg-gray-800"
+                    placeholder="Custom command"
+                    value={missingInputs.AGENT_CMD_OTHER || ''}
+                    onChange={e => setMissingInputs(m => ({ ...m, AGENT_CMD_OTHER: e.target.value }))}
+                  />
+                )}
+              </>
+            ) : (
+              <input
+                className="border rounded-md p-2 flex-1 dark:border-gray-700 dark:bg-gray-800"
+                placeholder={name}
+                value={missingInputs[name] || ''}
+                onChange={e => setMissingInputs(m => ({ ...m, [name]: e.target.value }))}
+              />
+            )}
             <div className="relative group">
               <span className="cursor-pointer">ℹ️</span>
               <span className="absolute hidden group-hover:block bg-gray-700 text-white text-xs rounded p-1 -left-1/2 mt-2 whitespace-nowrap z-10">{infoMap[name]}</span>
@@ -213,6 +250,7 @@ function App() {
             <button className="text-green-600" onClick={() => saveVar(name)}>Save</button>
           </div>
         ))}
+        <button className="self-start underline text-sm" onClick={() => setHasKeys(true)}>Continue anyway</button>
         {(missingVars.includes('APCA_API_KEY') || missingVars.includes('APCA_API_SECRET')) && (
           <button className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md" onClick={saveKeys}>Save Alpaca Keys</button>
         )}

@@ -181,10 +181,11 @@ to `trading_agent/logs/<runId>/agent.log`.
 Additional variables:
 
 - `MCP_PORT` sets the port for the HTTP server (default `4000`).
-- `AGENT_CMD` command used by the scheduler to launch your agent.
-- `MODEL_NAME` name used to tag each agent run.
+- `MCP_SERVER_URL` defaults to `http://localhost:${MCP_PORT}/rpc` and normally doesn't need to be changed.
+- `AGENT_CMD` is the CLI command used to launch your agent (e.g. `gemini`, `codex`, `claude`, or `opencode`).
+- `MODEL_NAME` is inferred from `AGENT_CMD` when you save it and tags each run.
 
-These variables can be inspected from the dashboard's **Debug** tab, which hides secret values unless you choose to reveal them.
+These variables can be inspected from the dashboard's **Debug** tab, which hides secret values unless you choose to reveal them. When the UI first loads it will prompt for any missing variables and you can continue anyway if you just want to explore.
 
 ### Logging Locations
 
