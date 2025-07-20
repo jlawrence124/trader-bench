@@ -1,5 +1,12 @@
 const { useState, useEffect } = React;
 
+const formatDateTime = (val) => {
+  if (!val) return '';
+  const dt = new Date(val);
+  if (isNaN(dt)) return val;
+  return dt.toLocaleString();
+};
+
 function App() {
   const [hasKeys, setHasKeys] = useState(null);
   const [apiKey, setApiKey] = useState('');
@@ -82,6 +89,7 @@ function App() {
         <button className="px-3 py-1 rounded bg-gray-300 dark:bg-gray-700 text-gray-500" disabled>Leaderboard (Coming Soon)</button>
       </nav>
 
+      {activeTab === 'runs' && (
         <section className="p-4 flex-1 overflow-auto">
           <div className="overflow-x-auto">
             <table className="min-w-full text-sm divide-y divide-gray-300 dark:divide-gray-700">
@@ -101,8 +109,8 @@ function App() {
                 return (
                   <tr key={i} className="hover:bg-indigo-50 dark:hover:bg-indigo-900">
                     <td className="p-2">{r.model}</td>
-                    <td className="p-2">{r.startDate || r.date}</td>
-                    <td className="p-2">{r.endDate || r.date}</td>
+                    <td className="p-2">{formatDateTime(r.startDate || r.date)}</td>
+                    <td className="p-2">{formatDateTime(r.endDate || r.date)}</td>
                     <td className="p-2">${r.spyGain.toFixed(2)}</td>
                     <td className="p-2">${r.portfolioGain.toFixed(2)}</td>
                     <td className="p-2">{diff.toFixed(2)}%</td>
