@@ -1,29 +1,60 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AI Trading Dashboard</title>
-    <link rel="stylesheet" href="style.css">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AI Trading Dashboard</title>
+  <link rel="stylesheet" href="style.css">
 </head>
 <body>
-    <header>
-        <h1>AI Trading Dashboard</h1>
-    </header>
-    <main>
-        <section id="account-section">
-            <h2>Account Info</h2>
-            <pre id="account-info">Loading...</pre>
-        </section>
-        <section id="market-section">
-            <h2>Market Data</h2>
-            <div class="market-inputs">
-                <input type="text" id="symbol" placeholder="Symbol" value="AAPL" />
-                <button onclick="loadMarketData()">Get Quote</button>
-            </div>
-            <pre id="market-data"></pre>
-        </section>
-    </main>
-    <script src="script.js"></script>
+  <header>
+    <h1>AI Trading Dashboard</h1>
+  </header>
+
+  <main id="setup-screen" class="hidden">
+    <h2>Enter Alpaca Credentials</h2>
+    <div class="form-row">
+      <input id="api-key" placeholder="API Key">
+    </div>
+    <div class="form-row">
+      <input id="api-secret" placeholder="API Secret">
+    </div>
+    <button id="save-keys">Save</button>
+  </main>
+
+  <main id="dashboard" class="hidden">
+    <nav class="tabs">
+      <button class="tab active" data-target="runs">Recent Runs</button>
+      <button class="tab" data-target="logs">Logs</button>
+      <button class="tab" disabled>Leaderboard (Coming Soon)</button>
+    </nav>
+
+    <section id="runs" class="tab-content">
+      <table id="runs-table">
+        <thead>
+          <tr>
+            <th>Model</th>
+            <th>Date</th>
+            <th>S&amp;P Gain</th>
+            <th>Portfolio Gain</th>
+            <th>Diff</th>
+            <th>Score</th>
+          </tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+    </section>
+
+    <section id="logs" class="tab-content hidden">
+      <select id="log-select"></select>
+      <pre id="log-content"></pre>
+    </section>
+
+    <section id="leaderboard" class="tab-content hidden">
+      <p>Leaderboard under construction...</p>
+    </section>
+  </main>
+
+  <script src="script.js"></script>
 </body>
 </html>

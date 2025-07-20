@@ -35,6 +35,19 @@ section {
     margin-bottom: 1rem;
 }
 
+.hidden {
+    display: none;
+}
+
+.tabs {
+    margin-bottom: 1rem;
+}
+
+.tab {
+    padding: 0.5rem 1rem;
+    margin-right: 0.5rem;
+}
+
 button {
     padding: 0.5rem 1rem;
     background: #3f51b5;
@@ -46,6 +59,21 @@ button {
 
 button:hover {
     background: #303f9f;
+}
+
+table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+th, td {
+    padding: 0.5rem;
+    border-bottom: 1px solid #ccc;
+}
+
+th {
+    background: #eee;
+    text-align: left;
 }
 
 pre {
