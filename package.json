@@ -5,7 +5,8 @@
     "main": "mcpServer.js",
     "scripts": {
         "start": "node mcpServer.js",
-        "start:scheduler": "node scheduler.js"
+        "start:scheduler": "node scheduler.js",
+        "start:all": "node startAll.js"
     },
     "dependencies": {
         "axios": "^1.10.0",

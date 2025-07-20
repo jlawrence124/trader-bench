@@ -58,7 +58,7 @@ The benchmark is composed of two main components that run independently:
 
 ## How to Run the Benchmark
 
-The system requires two separate terminal sessions to run correctly.
+The system traditionally requires two separate terminal sessions to run correctly.
 
 **1. Terminal 1: Start the MCP Server**
 This server will start the agent and listen for requests.
@@ -75,6 +75,16 @@ npm run start:scheduler
 You should see the message: `Scheduler started. Waiting for the next trading window.`
 
 The agent will be started by the MCP server. When the scheduler announces that a trading window is open, the agent will execute the logic defined in `agent.js`.
+
+**Convenience Command**
+
+If you prefer to launch both processes from a single terminal, use the provided script:
+
+```bash
+npm run start:all
+```
+
+This starts the MCP server and scheduler as child processes and forwards their output to the console.
 
 ---
 
