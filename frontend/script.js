@@ -26,6 +26,16 @@ function App() {
   const [runActive, setRunActive] = useState(false);
   const [overrideEdit, setOverrideEdit] = useState(false);
   const [missingVars, setMissingVars] = useState([]);
+  const [missingInputs, setMissingInputs] = useState({});
+
+  const infoMap = {
+    MCP_PORT: 'Port for the HTTP MCP server (e.g., 4000)',
+    AGENT_CMD: 'Command to launch your agent (e.g., "node trading_agent/agent.js")',
+    MCP_SERVER_URL: 'RPC URL used by the agent (e.g., http://localhost:4000/rpc)',
+    MODEL_NAME: 'Name used to label each run',
+    APCA_API_KEY: 'Your Alpaca API key',
+    APCA_API_SECRET: 'Your Alpaca API secret'
+  };
 
   useEffect(() => {
     fetch('/api/env-check')
@@ -153,16 +163,59 @@ function App() {
   if (hasKeys === null) return null;
 
   if (!hasKeys) {
+    const saveVar = (name) => {
+      if (!missingInputs[name]) return;
+      fetch('/api/set-env-var', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name, value: missingInputs[name] })
+      }).then(() => {
+        setMissingVars(v => v.filter(x => x !== name));
+      });
+    };
+
     return (
       <main className="max-w-md mx-auto py-10 flex flex-col space-y-4 text-gray-900 dark:text-gray-100">
         <h2 className="text-xl font-bold">Missing Environment Variables</h2>
         {missingVars.length > 0 && (
           <p className="text-sm">Missing: {missingVars.join(', ')}</p>
         )}
-        <p className="text-sm">Provide your API key and secret or add <code>APCA_API_KEY</code> and <code>APCA_API_SECRET</code> to a <code>.env</code> file.</p>
-        <input className="border rounded-md p-2 focus:outline-none focus:ring dark:border-gray-700 dark:bg-gray-800" placeholder="API Key" value={apiKey} onChange={e => setApiKey(e.target.value)} />
-        <input className="border rounded-md p-2 focus:outline-none focus:ring dark:border-gray-700 dark:bg-gray-800" placeholder="API Secret" value={apiSecret} onChange={e => setApiSecret(e.target.value)} />
-        <button className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md" onClick={saveKeys}>Save</button>
+        {missingVars.includes('APCA_API_KEY') && (
+          <div className="flex items-center space-x-2">
+            <input className="border rounded-md p-2 flex-1 dark:border-gray-700 dark:bg-gray-800" placeholder="API Key" value={apiKey} onChange={e => setApiKey(e.target.value)} />
+            <div className="relative group">
+              <span className="cursor-pointer">ℹ️</span>
+              <span className="absolute hidden group-hover:block bg-gray-700 text-white text-xs rounded p-1 -left-1/2 mt-2 whitespace-nowrap z-10">{infoMap.APCA_API_KEY}</span>
+            </div>
+          </div>
+        )}
+        {missingVars.includes('APCA_API_SECRET') && (
+          <div className="flex items-center space-x-2">
+            <input className="border rounded-md p-2 flex-1 dark:border-gray-700 dark:bg-gray-800" placeholder="API Secret" value={apiSecret} onChange={e => setApiSecret(e.target.value)} />
+            <div className="relative group">
+              <span className="cursor-pointer">ℹ️</span>
+              <span className="absolute hidden group-hover:block bg-gray-700 text-white text-xs rounded p-1 -left-1/2 mt-2 whitespace-nowrap z-10">{infoMap.APCA_API_SECRET}</span>
+            </div>
+          </div>
+        )}
+        {missingVars.filter(v => !['APCA_API_KEY','APCA_API_SECRET'].includes(v)).map(name => (
+          <div key={name} className="flex items-center space-x-2">
+            <input
+              className="border rounded-md p-2 flex-1 dark:border-gray-700 dark:bg-gray-800"
+              placeholder={name}
+              value={missingInputs[name] || ''}
+              onChange={e => setMissingInputs(m => ({ ...m, [name]: e.target.value }))}
+            />
+            <div className="relative group">
+              <span className="cursor-pointer">ℹ️</span>
+              <span className="absolute hidden group-hover:block bg-gray-700 text-white text-xs rounded p-1 -left-1/2 mt-2 whitespace-nowrap z-10">{infoMap[name]}</span>
+            </div>
+            <button className="text-green-600" onClick={() => saveVar(name)}>Save</button>
+          </div>
+        ))}
+        {(missingVars.includes('APCA_API_KEY') || missingVars.includes('APCA_API_SECRET')) && (
+          <button className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md" onClick={saveKeys}>Save Alpaca Keys</button>
+        )}
       </main>
     );
   }

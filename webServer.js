@@ -3,6 +3,20 @@ const path = require('path');
 const fs = require('fs');
 const { spawn } = require('child_process');
 const alpaca = require('./src/alpacaService');
+require('dotenv/config');
+
+function tailFile(filePath, maxBytes = 65536) {
+  const { size } = fs.statSync(filePath);
+  const start = Math.max(0, size - maxBytes);
+  const fd = fs.openSync(filePath, 'r');
+  try {
+    const buffer = Buffer.alloc(size - start);
+    fs.readSync(fd, buffer, 0, buffer.length, start);
+    return buffer.toString('utf8');
+  } finally {
+    fs.closeSync(fd);
+  }
+}
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -129,7 +143,8 @@ app.get('/api/logs/:name(*)', (req, res) => {
     filePath = path.join(agentLogsDir, name);
   }
   if (!fs.existsSync(filePath)) return res.status(404).json({ error: 'Not found' });
-  res.type('text/plain').send(fs.readFileSync(filePath, 'utf8'));
+  const content = tailFile(filePath, 200000);
+  res.type('text/plain').send(content);
 });
 
 app.get('/api/run-log', (req, res) => {
@@ -140,7 +155,8 @@ app.get('/api/run-log', (req, res) => {
     const files = fs.readdirSync(logsDir).filter(f => f.endsWith('.log')).sort();
     if (files.length) {
       const logPath = path.join(logsDir, files[files.length - 1]);
-      const lines = fs.readFileSync(logPath, 'utf8').split('\n').slice(-100).join('\n');
+      const content = tailFile(logPath);
+      const lines = content.split('\n').slice(-100).join('\n');
       output += '--- server log ---\n' + lines + '\n';
     }
   }
@@ -154,7 +170,8 @@ app.get('/api/run-log', (req, res) => {
     if (dirs.length) {
       const agentLog = path.join(agentLogsDir, dirs[0].dir, 'agent.log');
       if (fs.existsSync(agentLog)) {
-        const lines = fs.readFileSync(agentLog, 'utf8').split('\n').slice(-100).join('\n');
+        const content = tailFile(agentLog);
+        const lines = content.split('\n').slice(-100).join('\n');
         output += '\n--- agent log ---\n' + lines;
       }
     }
