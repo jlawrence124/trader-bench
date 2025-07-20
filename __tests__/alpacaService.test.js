@@ -47,4 +47,19 @@ describe('alpacaService', () => {
   test('submitOrder validates fields', async () => {
     await expect(alpacaService.submitOrder({ symbol: 'AAPL' })).rejects.toThrow(/Missing required fields/);
   });
+
+  test('compareWithSP500 calculates gains', async () => {
+    mockTradingGet.mockResolvedValueOnce({ data: { equity: [100000, 101000] } });
+    mockMarketGet.mockResolvedValueOnce({ data: { bars: [{ c: 400 }, { c: 404 }] } });
+    const result = await alpacaService.compareWithSP500('2023-01-01', '2023-01-08');
+    expect(mockTradingGet).toHaveBeenCalledWith('/v2/account/portfolio/history', { params: { start: '2023-01-01', end: '2023-01-08', timeframe: '1Day' } });
+    expect(mockMarketGet).toHaveBeenCalledWith('/v2/stocks/SPY/bars', { params: { timeframe: '1Day', start: '2023-01-01', end: '2023-01-08' } });
+    expect(result).toEqual({
+      startEquity: 100000,
+      endEquity: 101000,
+      accountGain: 1000,
+      spyGain: 1000,
+      relativeGain: 0
+    });
+  });
 });
