@@ -3,7 +3,8 @@ const path = require('path');
 const alpacaService = require('./src/alpacaService');
 const logger = require('./lib/logger');
 
-const agentPath = path.join(__dirname, 'trading_agent', 'agent.js');
+const agentPath = process.env.AGENT_PATH ||
+    path.join(__dirname, 'trading_agent', 'agent.js');
 
 logger.info('MCP Server starting...');
 

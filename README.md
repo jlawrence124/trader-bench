@@ -10,7 +10,7 @@ The benchmark is composed of two main components that run independently:
 
 2.  **Scheduler (`scheduler.js`)**: This component acts as the "hypervisor" for the trading environment. It runs on a predefined schedule based on US market hours and announces "trading windows" during which the AI agent is expected to perform its tasks. This simulates real-world trading sessions.
 
-3.  **Trading Agent (`trading_agent/`)**: This is the isolated environment where the AI's trading logic resides. The agent is provided with a client library (`mcpClient.js`) to communicate with the MCP Server but has no direct access to any other part of the benchmark's code. This ensures that the agent's performance is evaluated solely on its ability to interact with the provided API.
+3.  **Trading Agent (`trading_agent/`)**: This is the isolated environment where the AI's trading logic resides. The agent uses the shared `mcpClient.js` module to communicate with the MCP Server but has no direct access to any other part of the benchmark's code. This ensures that the agent's performance is evaluated solely on its ability to interact with the provided API.
 
 ---
 
@@ -18,7 +18,7 @@ The benchmark is composed of two main components that run independently:
 
 ### Prerequisites
 
-*   [Node.js](https://nodejs.org/) (v14 or later)
+*   [Node.js](https://nodejs.org/) (v18 or later recommended)
 *   An [Alpaca paper trading account](https://app.alpaca.markets/signup) to get your API keys.
 
 ### Installation
@@ -58,7 +58,7 @@ The benchmark is composed of two main components that run independently:
 
 ## How to Run the Benchmark
 
-The system requires two separate terminal sessions to run correctly.
+The system traditionally requires two separate terminal sessions to run correctly.
 
 **1. Terminal 1: Start the MCP Server**
 This server will start the agent and listen for requests.
@@ -75,6 +75,16 @@ npm run start:scheduler
 You should see the message: `Scheduler started. Waiting for the next trading window.`
 
 The agent will be started by the MCP server. When the scheduler announces that a trading window is open, the agent will execute the logic defined in `agent.js`.
+
+**Convenience Command**
+
+If you prefer to launch both processes from a single terminal, use the provided script:
+
+```bash
+npm run start:all
+```
+
+This starts the MCP server and scheduler as child processes and forwards their output to the console.
 
 ---
 
@@ -107,14 +117,65 @@ The logic for your AI agent should be implemented in the `trading_agent/agent.js
 ├── package.json          # Project dependencies and scripts
 ├── .env.example          # Example environment file for Alpaca keys
 ├── lib/
-│   └── mcpClient.js      # Client library for agent-server communication
+│   ├── logger.js         # Server-side logging utility
+│   └── shared/
+│       └── mcpClient.js  # Shared client library for agent-server communication
 └── trading_agent/
     ├── agent.js          # The AI agent's trading logic
     ├── package.json      # The agent's own dependencies
     └── lib/
-        └── mcpClient.js  # A copy of the client for the agent
+        └── logger.js     # Agent-specific logger factory
 ```
 
-## License
+## Configuration
 
-This project is licensed under the [MIT License](LICENSE).
+### Environment Variables
+
+The `.env` file stores your Alpaca credentials. Copy `.env.example` and add your
+keys:
+
+```bash
+cp .env.example .env
+```
+
+```
+APCA_API_KEY=YOUR_API_KEY
+APCA_API_SECRET=YOUR_SECRET_KEY
+# APCA_API_BASE_URL=https://paper-api.alpaca.markets
+```
+
+`APCA_API_BASE_URL` is optional if you need to point to a different Alpaca
+endpoint. The trading agent also accepts a `MODEL_NAME` variable. When set it is
+combined with the current date to create a run ID and all agent logs are written
+to `trading_agent/logs/<runId>/agent.log`.
+
+### Logging Locations
+
+Benchmark logs are written to `logs/trading_YYYY-MM-DD.log` in the project root.
+Each agent run writes to its own folder under `trading_agent/logs/`.
+
+### Adjusting Trading Windows
+
+Edit `scheduler.js` to change the trading schedule. The `tradingTimes` array
+holds cron expressions for window start times and `tradingWindowMinutes`
+controls how long each window stays open (default is two minutes).
+
+## Creating a Custom Agent Strategy
+
+The default agent in `trading_agent/agent.js` logs into the benchmark and shows
+basic API usage. Replace the `TODO` block in `runTradingLogic()` with your own
+strategy using the `MCPClient` methods. Example:
+
+```javascript
+// Example strategy snippet inside runTradingLogic
+const orderDetails = {
+    symbol: 'AAPL',
+    qty: 1,
+    side: 'buy',
+    type: 'market',
+    time_in_force: 'day'
+};
+const orderResult = await mcpClient.submitOrder(orderDetails);
+logger.info('Submitted order:', orderResult);
+```
+
