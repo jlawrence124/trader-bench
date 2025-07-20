@@ -6,6 +6,7 @@
     "scripts": {
         "start": "node mcpServer.js",
         "start:scheduler": "node scheduler.js",
+        "start:all": "node startAll.js",
         "test": "jest"
     },
     "dependencies": {

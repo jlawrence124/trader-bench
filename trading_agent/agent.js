@@ -1,5 +1,5 @@
 require('dotenv/config');
-const MCPClient = require('./lib/mcpClient');
+const MCPClient = require('../lib/shared/mcpClient');
 const createAgentLogger = require('./lib/logger');
 
 // --- Run Setup ---
