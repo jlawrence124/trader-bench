@@ -86,6 +86,30 @@ npm run start:all
 
 This starts the MCP server and scheduler as child processes and forwards their output to the console.
 
+### Web Dashboard
+
+A simple React-based dashboard is available to view recent runs and logs. Start it with:
+
+```bash
+npm run start:web
+```
+
+Open `http://localhost:3000` in your browser. If Alpaca API keys are not found
+in your environment or `.env` file, you will be prompted to enter them. The
+interface uses **React** and **Tailwind CSS** for a modern look with automatic
+dark mode based on your system preferences. The runs table now shows start,
+first trading, and end datetimes with S&P and portfolio gains (in dollars) plus
+a percentage difference column. A logs tab lets you read server or agent logs,
+a Benchmark tab lets you start the processes and monitor the combined running
+log (server and agent output), account equity, and open positions. Each log
+viewer has a **Clear** button that only clears the browser view (the log files
+continue to grow on disk). A placeholder tab for the future leaderboard is also
+included.
+
+### GitHub Codespaces
+
+This repo includes a `.devcontainer` folder so you can spin up a Codespace (or Dev Container) and run the dashboard entirely in the cloud. The container automatically installs dependencies and forwards port 3000. From a browser or mobile device you can start the UI with `npm run start:web`.
+
 ---
 
 ## API Capabilities
@@ -117,6 +141,8 @@ The logic for your AI agent should be implemented in the `trading_agent/agent.js
 ├── scheduler.js          # Schedules the trading windows
 ├── package.json          # Project dependencies and scripts
 ├── .env.example          # Example environment file for Alpaca keys
+├── webServer.js          # Express server for the web dashboard
+├── frontend/             # Static files for the dashboard
 ├── lib/
 │   ├── logger.js         # Server-side logging utility
 │   └── shared/
