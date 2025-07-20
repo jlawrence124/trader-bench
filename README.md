@@ -104,8 +104,9 @@ a Benchmark tab lets you start the processes and monitor the combined running
 log (server and agent output), account equity, and open positions. Each log
 viewer has a **Clear** button that only clears the browser view (the log files
 continue to grow on disk). A Debug tab lists important environment variables
-with secret values hidden by default. A placeholder tab for the future
-leaderboard is also included.
+with secret values hidden by default. If no run is active you can edit these
+values directly from the UI and optionally override the restriction with a
+checkbox. A placeholder tab for the future leaderboard is also included.
 
 ### GitHub Codespaces
 

@@ -21,12 +21,18 @@ function App() {
   const [positions, setPositions] = useState([]);
   const [envVars, setEnvVars] = useState([]);
   const [showSecret, setShowSecret] = useState({});
+  const [editing, setEditing] = useState({});
+  const [editVals, setEditVals] = useState({});
+  const [runActive, setRunActive] = useState(false);
+  const [overrideEdit, setOverrideEdit] = useState(false);
+  const [missingVars, setMissingVars] = useState([]);
 
   useEffect(() => {
     fetch('/api/env-check')
       .then(res => res.json())
       .then(data => {
         setHasKeys(data.hasKeys);
+        setMissingVars(data.missing || []);
         if (data.hasKeys) {
           loadRuns();
           loadLogList();
@@ -34,18 +40,37 @@ function App() {
       });
   }, []);
 
+  const loadRunStatus = () => {
+    fetch('/api/run-status')
+      .then(res => res.json())
+      .then(data => setRunActive(Boolean(data.running)));
+  };
+
+  const loadEnvVars = () => {
+    fetch('/api/env-vars')
+      .then(res => res.json())
+      .then(data => setEnvVars(data));
+  };
+
   useEffect(() => {
     if (activeTab === 'benchmark') {
       loadBenchmarkLog();
       loadAccount();
       loadPositions();
-      const id = setInterval(loadBenchmarkLog, 5000);
+      const id = setInterval(() => {
+        loadBenchmarkLog();
+        loadRunStatus();
+      }, 5000);
       return () => clearInterval(id);
     }
     if (activeTab === 'debug') {
-      fetch('/api/env-vars')
-        .then(res => res.json())
-        .then(data => setEnvVars(data));
+      loadRunStatus();
+      loadEnvVars();
+      const id = setInterval(() => {
+        loadRunStatus();
+        loadEnvVars();
+      }, 5000);
+      return () => clearInterval(id);
     }
   }, [activeTab]);
 
@@ -66,7 +91,10 @@ function App() {
 
   const startBenchmark = () => {
     fetch('/api/start-benchmark', { method: 'POST' })
-      .then(() => loadBenchmarkLog());
+      .then(() => {
+        setRunActive(true);
+        loadBenchmarkLog();
+      });
   };
 
   const loadBenchmarkLog = () => {
@@ -111,12 +139,26 @@ function App() {
     });
   };
 
+  const saveEnvVar = (name) => {
+    fetch('/api/set-env-var', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name, value: editVals[name], override: overrideEdit })
+    }).then(() => {
+      setEditing(e => ({ ...e, [name]: false }));
+      loadEnvVars();
+    });
+  };
+
   if (hasKeys === null) return null;
 
   if (!hasKeys) {
     return (
       <main className="max-w-md mx-auto py-10 flex flex-col space-y-4 text-gray-900 dark:text-gray-100">
-        <h2 className="text-xl font-bold">Enter Alpaca Credentials</h2>
+        <h2 className="text-xl font-bold">Missing Environment Variables</h2>
+        {missingVars.length > 0 && (
+          <p className="text-sm">Missing: {missingVars.join(', ')}</p>
+        )}
         <p className="text-sm">Provide your API key and secret or add <code>APCA_API_KEY</code> and <code>APCA_API_SECRET</code> to a <code>.env</code> file.</p>
         <input className="border rounded-md p-2 focus:outline-none focus:ring dark:border-gray-700 dark:bg-gray-800" placeholder="API Key" value={apiKey} onChange={e => setApiKey(e.target.value)} />
         <input className="border rounded-md p-2 focus:outline-none focus:ring dark:border-gray-700 dark:bg-gray-800" placeholder="API Secret" value={apiSecret} onChange={e => setApiSecret(e.target.value)} />
@@ -222,7 +264,11 @@ function App() {
       )}
 
       {activeTab === 'debug' && (
-        <section className="p-4 flex-1 overflow-auto">
+        <section className="p-4 flex-1 overflow-auto space-y-2">
+          <label className="inline-flex items-center">
+            <input type="checkbox" className="mr-2" checked={overrideEdit} onChange={e => setOverrideEdit(e.target.checked)} />
+            Allow editing while run is active
+          </label>
           <table className="min-w-full text-sm divide-y divide-gray-300 dark:divide-gray-700">
             <thead>
               <tr className="bg-gray-100 dark:bg-gray-800">
@@ -235,11 +281,28 @@ function App() {
                 <tr key={v.name}>
                   <td className="p-2 font-mono">{v.name}</td>
                   <td className="p-2">
-                    {v.secret && !showSecret[v.name] ? '••••••' : (v.value || '(not set)')}
-                    {v.secret && (
-                      <button className="ml-2 text-blue-600" onClick={() => setShowSecret(s => ({ ...s, [v.name]: !s[v.name] }))}>
-                        {showSecret[v.name] ? 'Hide' : 'Show'}
-                      </button>
+                    {editing[v.name] ? (
+                      <>
+                        <input
+                          className="border rounded p-1 mr-1 dark:border-gray-700 dark:bg-gray-800"
+                          value={editVals[v.name] ?? v.value}
+                          onChange={e => setEditVals({ ...editVals, [v.name]: e.target.value })}
+                        />
+                        <button className="text-green-600 mr-1" onClick={() => saveEnvVar(v.name)}>Save</button>
+                        <button className="text-gray-600" onClick={() => setEditing(e => ({ ...e, [v.name]: false }))}>Cancel</button>
+                      </>
+                    ) : (
+                      <>
+                        {v.secret && !showSecret[v.name] ? '••••••' : (v.value || '(not set)')}
+                        {v.secret && (
+                          <button className="ml-2 text-blue-600" onClick={() => setShowSecret(s => ({ ...s, [v.name]: !s[v.name] }))}>
+                            {showSecret[v.name] ? 'Hide' : 'Show'}
+                          </button>
+                        )}
+                        {(!runActive || overrideEdit) && (
+                          <button className="ml-2 text-sm" onClick={() => setEditing(e => ({ ...e, [v.name]: true }))}>✏️</button>
+                        )}
+                      </>
                     )}
                   </td>
                 </tr>

@@ -18,8 +18,22 @@ let benchmarkProcess = null;
 
 // ----- Utility Endpoints -----
 app.get('/api/env-check', (req, res) => {
-  const hasKeys = Boolean(process.env.APCA_API_KEY && process.env.APCA_API_SECRET);
-  res.json({ hasKeys });
+  const vars = [
+    'APCA_API_KEY',
+    'APCA_API_SECRET',
+    'APCA_API_BASE_URL',
+    'MCP_PORT',
+    'AGENT_CMD',
+    'MCP_SERVER_URL',
+    'MODEL_NAME'
+  ];
+  const missing = vars.filter(v => !process.env[v]);
+  const hasKeys = missing.length === 0;
+  res.json({ hasKeys, missing });
+});
+
+app.get('/api/run-status', (req, res) => {
+  res.json({ running: Boolean(benchmarkProcess) });
 });
 
 // List configured environment variables for debugging
@@ -41,6 +55,25 @@ app.get('/api/env-vars', (req, res) => {
   }));
 
   res.json(values);
+});
+
+app.post('/api/set-env-var', (req, res) => {
+  const { name, value, override } = req.body || {};
+  if (!name) return res.status(400).json({ error: 'Missing name' });
+  if (benchmarkProcess && !override) {
+    return res.status(400).json({ error: 'Benchmark is running' });
+  }
+  process.env[name] = value;
+  let env = '';
+  if (fs.existsSync('.env')) env = fs.readFileSync('.env', 'utf8');
+  const line = new RegExp(`^${name}=.*$`, 'm');
+  if (line.test(env)) {
+    env = env.replace(line, `${name}=${value}`);
+  } else {
+    env += `\n${name}=${value}`;
+  }
+  fs.writeFileSync('.env', env.trim() + '\n');
+  res.json({ success: true });
 });
 
 app.post('/api/save-keys', (req, res) => {
