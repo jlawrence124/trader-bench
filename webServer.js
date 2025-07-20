@@ -1,6 +1,7 @@
 const express = require('express');
 const path = require('path');
 const fs = require('fs');
+const { spawn } = require('child_process');
 const alpaca = require('./src/alpacaService');
 
 const app = express();
@@ -13,6 +14,7 @@ app.use(express.static(path.join(__dirname, 'frontend')));
 
 const logsDir = path.join(__dirname, 'logs');
 const agentLogsDir = path.join(__dirname, 'trading_agent', 'logs');
+let benchmarkProcess = null;
 
 // ----- Utility Endpoints -----
 app.get('/api/env-check', (req, res) => {
@@ -33,6 +35,13 @@ app.post('/api/save-keys', (req, res) => {
   env += `\nAPCA_API_KEY=${key}\nAPCA_API_SECRET=${secret}\n`;
   fs.writeFileSync('.env', env.trim() + '\n');
   res.json({ success: true });
+});
+
+app.post('/api/start-benchmark', (req, res) => {
+  if (benchmarkProcess) return res.json({ running: true });
+  benchmarkProcess = spawn('node', ['startAll.js']);
+  benchmarkProcess.on('close', () => { benchmarkProcess = null; });
+  res.json({ running: true });
 });
 
 app.get('/api/runs', (req, res) => {
@@ -67,6 +76,15 @@ app.get('/api/logs/:name(*)', (req, res) => {
   }
   if (!fs.existsSync(filePath)) return res.status(404).json({ error: 'Not found' });
   res.type('text/plain').send(fs.readFileSync(filePath, 'utf8'));
+});
+
+app.get('/api/run-log', (req, res) => {
+  if (!fs.existsSync(logsDir)) return res.type('text/plain').send('');
+  const files = fs.readdirSync(logsDir).filter(f => f.endsWith('.log')).sort();
+  if (!files.length) return res.type('text/plain').send('');
+  const logPath = path.join(logsDir, files[files.length - 1]);
+  const lines = fs.readFileSync(logPath, 'utf8').split('\n').slice(-100).join('\n');
+  res.type('text/plain').send(lines);
 });
 
 // Simple API endpoints

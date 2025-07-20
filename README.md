@@ -97,10 +97,12 @@ npm run start:web
 Open `http://localhost:3000` in your browser. If Alpaca API keys are not found
 in your environment or `.env` file, you will be prompted to enter them. The
 interface uses **React** and **Tailwind CSS** for a modern look with automatic
-dark mode based on your system preferences. The runs table now shows start and
-end datetimes, S&P and portfolio gains (in dollars), and a percentage difference
-column. A logs tab lets you read server or agent logs, and a placeholder tab for
-the future leaderboard is also included.
+dark mode based on your system preferences. The runs table now shows start,
+first trading, and end datetimes with S&P and portfolio gains (in dollars) plus
+a percentage difference column. A logs tab lets you read server or agent logs,
+a Benchmark tab lets you start the processes and monitor the live log, account
+equity, and open positions, and a placeholder tab for the future leaderboard is
+also included.
 
 ### GitHub Codespaces
 
