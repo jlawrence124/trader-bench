@@ -250,7 +250,17 @@ function App() {
             <button className="text-green-600" onClick={() => saveVar(name)}>Save</button>
           </div>
         ))}
-        <button className="self-start underline text-sm" onClick={() => setHasKeys(true)}>Continue anyway</button>
+        <button
+          className="self-start underline text-sm"
+          onClick={() => {
+            setHasKeys(true);
+            loadRuns();
+            loadLogList();
+            loadRunStatus();
+          }}
+        >
+          Continue anyway
+        </button>
         {(missingVars.includes('APCA_API_KEY') || missingVars.includes('APCA_API_SECRET')) && (
           <button className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md" onClick={saveKeys}>Save Alpaca Keys</button>
         )}
