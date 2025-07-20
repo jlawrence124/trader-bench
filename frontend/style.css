@@ -1,5 +1,5 @@
 body {
-    font-family: Arial, sans-serif;
+    font-family: 'Roboto', Arial, sans-serif;
     margin: 0;
     padding: 0;
     background: linear-gradient(135deg, #f5f7fa, #c3cfe2);
@@ -9,11 +9,11 @@ body {
 }
 
 header {
-    background: #3f51b5;
+    background: linear-gradient(45deg, #3f51b5, #5c6bc0);
     color: #fff;
-    padding: 1rem;
+    padding: 1.5rem;
     text-align: center;
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
 }
 
 main {
@@ -41,11 +41,21 @@ section {
 
 .tabs {
     margin-bottom: 1rem;
+    background: #fff;
+    padding: 0.25rem;
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
 }
 
 .tab {
     padding: 0.5rem 1rem;
     margin-right: 0.5rem;
+    border-radius: 4px;
+}
+
+.tab.active {
+    background: #3f51b5;
+    color: #fff;
 }
 
 button {
@@ -55,6 +65,7 @@ button {
     border: none;
     border-radius: 4px;
     cursor: pointer;
+    transition: background 0.3s;
 }
 
 button:hover {
@@ -69,6 +80,14 @@ table {
 th, td {
     padding: 0.5rem;
     border-bottom: 1px solid #ccc;
+}
+
+tbody tr:nth-child(even) {
+    background: #f9f9f9;
+}
+
+tbody tr:hover {
+    background: #e0e7ff;
 }
 
 th {

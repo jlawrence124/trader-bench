@@ -2,17 +2,13 @@
   {
     "model": "default_agent",
     "date": "2025-07-19",
-    "spyGain": -0.2,
-    "portfolioGain": -0.1,
-    "differential": 0.1,
-    "score": 1.0
+    "spyGain": -200,
+    "portfolioGain": -150
   },
   {
     "model": "default_agent",
     "date": "2025-07-20",
-    "spyGain": 0.5,
-    "portfolioGain": 1.0,
-    "differential": 0.5,
-    "score": 2.0
+    "spyGain": 300,
+    "portfolioGain": 450
   }
 ]

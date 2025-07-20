@@ -96,9 +96,10 @@ npm run start:web
 
 Open `http://localhost:3000` in your browser. If Alpaca API keys are not found
 in your environment or `.env` file, you will be prompted to enter them. The
-default view shows a table of recent benchmark runs. A logs tab lets you read
-server or agent logs, and a placeholder tab for the future leaderboard is also
-included.
+default view shows a table of recent benchmark runs with S&P and portfolio gains
+displayed in dollars and a percentage difference column. A logs tab lets you
+read server or agent logs, and a placeholder tab for the future leaderboard is
+also included.
 
 ---
 

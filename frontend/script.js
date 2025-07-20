@@ -33,8 +33,9 @@ async function loadRuns() {
   const tbody = document.querySelector('#runs-table tbody');
   tbody.innerHTML = '';
   runs.forEach(r => {
+    const diff = r.spyGain !== 0 ? ((r.portfolioGain - r.spyGain) / Math.abs(r.spyGain)) * 100 : 0;
     const tr = document.createElement('tr');
-    tr.innerHTML = `<td>${r.model}</td><td>${r.date}</td><td>${r.spyGain}</td><td>${r.portfolioGain}</td><td>${r.differential}</td><td>${r.score}</td>`;
+    tr.innerHTML = `<td>${r.model}</td><td>${r.date}</td><td>$${r.spyGain.toFixed(2)}</td><td>$${r.portfolioGain.toFixed(2)}</td><td>${diff.toFixed(2)}%</td>`;
     tbody.appendChild(tr);
   });
 }
