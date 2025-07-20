@@ -68,6 +68,8 @@ function App() {
       .then(text => setBenchmarkLog(text));
   };
 
+  const clearBenchmarkLog = () => setBenchmarkLog('');
+
   const loadAccount = () => {
     fetch('/api/account')
       .then(res => res.json())
@@ -86,6 +88,8 @@ function App() {
       .then(res => res.text())
       .then(text => setLogContent(text));
   };
+
+  const clearLogContent = () => setLogContent('');
 
   const saveKeys = () => {
     if (!apiKey || !apiSecret) return alert('Both fields are required');
@@ -167,6 +171,7 @@ function App() {
           <select className="border rounded-md p-2 dark:border-gray-700 dark:bg-gray-800" value={selectedLog} onChange={e => loadLog(e.target.value)}>
             {logs.map(f => <option key={f} value={f}>{f}</option>)}
           </select>
+          <button className="ml-2 px-3 py-1 bg-gray-200 dark:bg-gray-700 rounded" onClick={clearLogContent}>Clear</button>
           <pre className="bg-gray-100 dark:bg-gray-800 p-4 rounded-md h-96 overflow-auto whitespace-pre-wrap">{logContent}</pre>
         </section>
       )}
@@ -201,6 +206,7 @@ function App() {
           </div>
           <div>
             <h3 className="font-bold mb-1">Running Log</h3>
+            <button className="mb-1 px-3 py-1 bg-gray-200 dark:bg-gray-700 rounded" onClick={clearBenchmarkLog}>Clear</button>
             <pre className="bg-gray-100 dark:bg-gray-800 p-2 rounded-md h-60 overflow-auto whitespace-pre-wrap">{benchmarkLog}</pre>
           </div>
         </section>

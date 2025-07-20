@@ -100,9 +100,11 @@ interface uses **React** and **Tailwind CSS** for a modern look with automatic
 dark mode based on your system preferences. The runs table now shows start,
 first trading, and end datetimes with S&P and portfolio gains (in dollars) plus
 a percentage difference column. A logs tab lets you read server or agent logs,
-a Benchmark tab lets you start the processes and monitor the live log, account
-equity, and open positions, and a placeholder tab for the future leaderboard is
-also included.
+a Benchmark tab lets you start the processes and monitor the combined running
+log (server and agent output), account equity, and open positions. Each log
+viewer has a **Clear** button that only clears the browser view (the log files
+continue to grow on disk). A placeholder tab for the future leaderboard is also
+included.
 
 ### GitHub Codespaces
 

@@ -79,12 +79,34 @@ app.get('/api/logs/:name(*)', (req, res) => {
 });
 
 app.get('/api/run-log', (req, res) => {
-  if (!fs.existsSync(logsDir)) return res.type('text/plain').send('');
-  const files = fs.readdirSync(logsDir).filter(f => f.endsWith('.log')).sort();
-  if (!files.length) return res.type('text/plain').send('');
-  const logPath = path.join(logsDir, files[files.length - 1]);
-  const lines = fs.readFileSync(logPath, 'utf8').split('\n').slice(-100).join('\n');
-  res.type('text/plain').send(lines);
+  let output = '';
+
+  // ----- server log -----
+  if (fs.existsSync(logsDir)) {
+    const files = fs.readdirSync(logsDir).filter(f => f.endsWith('.log')).sort();
+    if (files.length) {
+      const logPath = path.join(logsDir, files[files.length - 1]);
+      const lines = fs.readFileSync(logPath, 'utf8').split('\n').slice(-100).join('\n');
+      output += '--- server log ---\n' + lines + '\n';
+    }
+  }
+
+  // ----- agent log -----
+  if (fs.existsSync(agentLogsDir)) {
+    const dirs = fs.readdirSync(agentLogsDir).map(d => {
+      const full = path.join(agentLogsDir, d);
+      return { dir: d, time: fs.statSync(full).mtimeMs };
+    }).sort((a, b) => b.time - a.time);
+    if (dirs.length) {
+      const agentLog = path.join(agentLogsDir, dirs[0].dir, 'agent.log');
+      if (fs.existsSync(agentLog)) {
+        const lines = fs.readFileSync(agentLog, 'utf8').split('\n').slice(-100).join('\n');
+        output += '\n--- agent log ---\n' + lines;
+      }
+    }
+  }
+
+  res.type('text/plain').send(output);
 });
 
 // Simple API endpoints
