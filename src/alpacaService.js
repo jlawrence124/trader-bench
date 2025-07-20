@@ -185,6 +185,48 @@ async function getPerformanceMetrics() {
     }
 }
 
+/**
+ * Compare account performance against the S&P 500 (using SPY ETF data).
+ * @param {string} start - Start date in ISO 8601 format (YYYY-MM-DD)
+ * @param {string} end - End date in ISO 8601 format (YYYY-MM-DD)
+ * @returns {Promise<object>} Performance comparison results
+ */
+async function compareWithSP500(start, end) {
+    // Fetch portfolio equity history for the given period
+    const portfolioRes = await tradingApi.get('/v2/account/portfolio/history', {
+        params: { start, end, timeframe: '1Day' }
+    });
+
+    const equity = portfolioRes.data.equity || [];
+    if (equity.length < 2) {
+        throw new Error('Insufficient portfolio history data');
+    }
+
+    const startEquity = parseFloat(equity[0]);
+    const endEquity = parseFloat(equity[equity.length - 1]);
+    const accountGain = endEquity - startEquity;
+
+    // Fetch SPY price history to approximate S&P 500 performance
+    const spyRes = await getHistoricalBars('SPY', '1Day', start, end);
+    const bars = spyRes.bars || spyRes;
+    if (!Array.isArray(bars) || bars.length < 2) {
+        throw new Error('Insufficient SPY data');
+    }
+
+    const openPrice = parseFloat(bars[0].c ?? bars[0].close ?? bars[0].o);
+    const closePrice = parseFloat(bars[bars.length - 1].c ?? bars[bars.length - 1].close ?? bars[bars.length - 1].o);
+    const spyReturnPct = (closePrice - openPrice) / openPrice;
+    const spyGain = spyReturnPct * startEquity;
+
+    return {
+        startEquity,
+        endEquity,
+        accountGain,
+        spyGain,
+        relativeGain: accountGain - spyGain
+    };
+}
+
 module.exports = {
     getMarketData,
     submitOrder,
@@ -193,4 +235,5 @@ module.exports = {
     getAccountInfo,
     getHistoricalBars,
     getPerformanceMetrics,
+    compareWithSP500,
 };

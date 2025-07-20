@@ -31,6 +31,15 @@ async function runTradingLogic() {
         const marketData = await mcpClient.getMarketData(symbol);
         logger.info(`Market Data for ${symbol}:`, marketData);
 
+        // Example: Compare performance against the S&P 500 over the last week
+        const end = new Date().toISOString().split('T')[0];
+        const start = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000)
+            .toISOString()
+            .split('T')[0];
+        logger.info(`\nComparing portfolio performance to S&P 500 from ${start} to ${end}...`);
+        const comparison = await mcpClient.compareWithSP500(start, end);
+        logger.info('Performance vs S&P 500:', comparison);
+
         // =================================================================
         // TODO: Implement your trading strategy here.
         // You have 2 minutes from when the scheduler announces the window.

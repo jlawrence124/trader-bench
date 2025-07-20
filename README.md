@@ -101,6 +101,7 @@ The agent can interact with the MCP server using the following methods:
 *   `getAccountInfo()`: Fetches account details.
 *   `getHistoricalBars(symbol, timeframe, start, end)`: Gets historical price data.
 *   `getPerformanceMetrics()`: A placeholder for fetching performance metrics.
+*   `compareWithSP500(start, end)`: Returns portfolio gains alongside equivalent gains for the S&P 500 (via the SPY ETF) for the given period.
 
 ## Developing Your Agent
 
