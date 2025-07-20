@@ -22,6 +22,27 @@ app.get('/api/env-check', (req, res) => {
   res.json({ hasKeys });
 });
 
+// List configured environment variables for debugging
+app.get('/api/env-vars', (req, res) => {
+  const vars = [
+    { name: 'APCA_API_KEY', secret: true },
+    { name: 'APCA_API_SECRET', secret: true },
+    { name: 'APCA_API_BASE_URL', secret: false },
+    { name: 'MCP_PORT', secret: false },
+    { name: 'AGENT_CMD', secret: false },
+    { name: 'MCP_SERVER_URL', secret: false },
+    { name: 'MODEL_NAME', secret: false },
+  ];
+
+  const values = vars.map(v => ({
+    name: v.name,
+    value: process.env[v.name] || '',
+    secret: v.secret,
+  }));
+
+  res.json(values);
+});
+
 app.post('/api/save-keys', (req, res) => {
   const { key, secret } = req.body || {};
   if (!key || !secret) {

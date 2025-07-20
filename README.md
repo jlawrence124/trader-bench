@@ -103,8 +103,9 @@ a percentage difference column. A logs tab lets you read server or agent logs,
 a Benchmark tab lets you start the processes and monitor the combined running
 log (server and agent output), account equity, and open positions. Each log
 viewer has a **Clear** button that only clears the browser view (the log files
-continue to grow on disk). A placeholder tab for the future leaderboard is also
-included.
+continue to grow on disk). A Debug tab lists important environment variables
+with secret values hidden by default. A placeholder tab for the future
+leaderboard is also included.
 
 ### GitHub Codespaces
 
@@ -180,6 +181,9 @@ Additional variables:
 
 - `MCP_PORT` sets the port for the HTTP server (default `4000`).
 - `AGENT_CMD` command used by the scheduler to launch your agent.
+- `MODEL_NAME` name used to tag each agent run.
+
+These variables can be inspected from the dashboard's **Debug** tab, which hides secret values unless you choose to reveal them.
 
 ### Logging Locations
 

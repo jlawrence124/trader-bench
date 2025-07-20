@@ -19,6 +19,8 @@ function App() {
   const [benchmarkLog, setBenchmarkLog] = useState('');
   const [account, setAccount] = useState(null);
   const [positions, setPositions] = useState([]);
+  const [envVars, setEnvVars] = useState([]);
+  const [showSecret, setShowSecret] = useState({});
 
   useEffect(() => {
     fetch('/api/env-check')
@@ -39,6 +41,11 @@ function App() {
       loadPositions();
       const id = setInterval(loadBenchmarkLog, 5000);
       return () => clearInterval(id);
+    }
+    if (activeTab === 'debug') {
+      fetch('/api/env-vars')
+        .then(res => res.json())
+        .then(data => setEnvVars(data));
     }
   }, [activeTab]);
 
@@ -128,6 +135,7 @@ function App() {
         <button className={`px-3 py-1 rounded ${activeTab==='runs'?'bg-blue-500 text-white':'bg-gray-200 dark:bg-gray-700 dark:text-gray-200'}`} onClick={() => setActiveTab('runs')}>Recent Runs</button>
         <button className={`px-3 py-1 rounded ${activeTab==='logs'?'bg-blue-500 text-white':'bg-gray-200 dark:bg-gray-700 dark:text-gray-200'}`} onClick={() => setActiveTab('logs')}>Logs</button>
         <button className={`px-3 py-1 rounded ${activeTab==='benchmark'?'bg-blue-500 text-white':'bg-gray-200 dark:bg-gray-700 dark:text-gray-200'}`} onClick={() => setActiveTab('benchmark')}>Benchmark</button>
+        <button className={`px-3 py-1 rounded ${activeTab==='debug'?'bg-blue-500 text-white':'bg-gray-200 dark:bg-gray-700 dark:text-gray-200'}`} onClick={() => setActiveTab('debug')}>Debug</button>
         <button className="px-3 py-1 rounded bg-gray-300 dark:bg-gray-700 text-gray-500" disabled>Leaderboard (Coming Soon)</button>
       </nav>
 
@@ -210,6 +218,34 @@ function App() {
             <button className="mb-1 px-3 py-1 bg-gray-200 dark:bg-gray-700 rounded" onClick={clearBenchmarkLog}>Clear</button>
             <pre className="bg-gray-100 dark:bg-gray-800 p-2 rounded-md h-60 overflow-auto whitespace-pre-wrap">{benchmarkLog}</pre>
           </div>
+        </section>
+      )}
+
+      {activeTab === 'debug' && (
+        <section className="p-4 flex-1 overflow-auto">
+          <table className="min-w-full text-sm divide-y divide-gray-300 dark:divide-gray-700">
+            <thead>
+              <tr className="bg-gray-100 dark:bg-gray-800">
+                <th className="p-2 text-left">Variable</th>
+                <th className="p-2 text-left">Value</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
+              {envVars.map(v => (
+                <tr key={v.name}>
+                  <td className="p-2 font-mono">{v.name}</td>
+                  <td className="p-2">
+                    {v.secret && !showSecret[v.name] ? '••••••' : (v.value || '(not set)')}
+                    {v.secret && (
+                      <button className="ml-2 text-blue-600" onClick={() => setShowSecret(s => ({ ...s, [v.name]: !s[v.name] }))}>
+                        {showSecret[v.name] ? 'Hide' : 'Show'}
+                      </button>
+                    )}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </section>
       )}
 
