@@ -61,32 +61,32 @@ function App() {
 
   if (!hasKeys) {
     return (
-      <main className="max-w-md mx-auto py-10 flex flex-col gap-4">
+      <main className="max-w-md mx-auto py-10 flex flex-col gap-4 text-gray-900 dark:text-gray-100">
         <h2 className="text-xl font-bold">Enter Alpaca Credentials</h2>
-        <input className="border p-2" placeholder="API Key" value={apiKey} onChange={e => setApiKey(e.target.value)} />
-        <input className="border p-2" placeholder="API Secret" value={apiSecret} onChange={e => setApiSecret(e.target.value)} />
-        <button className="bg-blue-600 text-white px-4 py-2 rounded" onClick={saveKeys}>Save</button>
+        <input className="border p-2 dark:border-gray-700 dark:bg-gray-800" placeholder="API Key" value={apiKey} onChange={e => setApiKey(e.target.value)} />
+        <input className="border p-2 dark:border-gray-700 dark:bg-gray-800" placeholder="API Secret" value={apiSecret} onChange={e => setApiSecret(e.target.value)} />
+        <button className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded" onClick={saveKeys}>Save</button>
       </main>
     );
   }
 
   return (
-    <div className="flex-1 flex flex-col">
-      <header className="bg-gradient-to-r from-blue-500 to-indigo-600 text-white py-6 text-center shadow">
+    <div className="flex-1 flex flex-col bg-white dark:bg-gray-900">
+      <header className="bg-gradient-to-r from-blue-500 to-indigo-600 text-white py-6 text-center shadow-lg">
         <h1 className="text-2xl font-bold">AI Trading Dashboard</h1>
       </header>
 
-      <nav className="bg-white shadow flex space-x-4 px-4 py-2">
-        <button className={`px-3 py-1 rounded ${activeTab==='runs'?'bg-blue-500 text-white':'bg-gray-100'}`} onClick={() => setActiveTab('runs')}>Recent Runs</button>
-        <button className={`px-3 py-1 rounded ${activeTab==='logs'?'bg-blue-500 text-white':'bg-gray-100'}`} onClick={() => setActiveTab('logs')}>Logs</button>
-        <button className="px-3 py-1 rounded bg-gray-200" disabled>Leaderboard (Coming Soon)</button>
+      <nav className="bg-gray-100 dark:bg-gray-800 shadow flex space-x-4 px-4 py-2">
+        <button className={`px-3 py-1 rounded ${activeTab==='runs'?'bg-blue-500 text-white':'bg-gray-200 dark:bg-gray-700 dark:text-gray-200'}`} onClick={() => setActiveTab('runs')}>Recent Runs</button>
+        <button className={`px-3 py-1 rounded ${activeTab==='logs'?'bg-blue-500 text-white':'bg-gray-200 dark:bg-gray-700 dark:text-gray-200'}`} onClick={() => setActiveTab('logs')}>Logs</button>
+        <button className="px-3 py-1 rounded bg-gray-300 dark:bg-gray-700 text-gray-500" disabled>Leaderboard (Coming Soon)</button>
       </nav>
 
       {activeTab === 'runs' && (
         <section className="p-4 flex-1 overflow-auto">
-          <table className="min-w-full divide-y divide-gray-300">
+          <table className="min-w-full divide-y divide-gray-300 dark:divide-gray-700">
             <thead>
-              <tr className="bg-gray-100">
+              <tr className="bg-gray-100 dark:bg-gray-800">
                 <th className="p-2 text-left">Model</th>
                 <th className="p-2 text-left">Start</th>
                 <th className="p-2 text-left">End</th>
@@ -95,11 +95,11 @@ function App() {
                 <th className="p-2 text-left">Diff (%)</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-gray-200">
+            <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
               {runs.map((r,i) => {
                 const diff = r.spyGain !== 0 ? ((r.portfolioGain - r.spyGain) / Math.abs(r.spyGain)) * 100 : 0;
                 return (
-                  <tr key={i} className="hover:bg-indigo-50">
+                  <tr key={i} className="hover:bg-indigo-50 dark:hover:bg-indigo-900">
                     <td className="p-2">{r.model}</td>
                     <td className="p-2">{r.startDate || r.date}</td>
                     <td className="p-2">{r.endDate || r.date}</td>
@@ -116,10 +116,10 @@ function App() {
 
       {activeTab === 'logs' && (
         <section className="p-4 space-y-4 flex-1 overflow-auto">
-          <select className="border p-2" value={selectedLog} onChange={e => loadLog(e.target.value)}>
+          <select className="border p-2 dark:border-gray-700 dark:bg-gray-800" value={selectedLog} onChange={e => loadLog(e.target.value)}>
             {logs.map(f => <option key={f} value={f}>{f}</option>)}
           </select>
-          <pre className="bg-gray-100 p-4 rounded h-96 overflow-auto whitespace-pre-wrap">{logContent}</pre>
+          <pre className="bg-gray-100 dark:bg-gray-800 p-4 rounded h-96 overflow-auto whitespace-pre-wrap">{logContent}</pre>
         </section>
       )}
 
