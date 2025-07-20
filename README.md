@@ -86,6 +86,16 @@ npm run start:all
 
 This starts the MCP server and scheduler as child processes and forwards their output to the console.
 
+### Web Dashboard
+
+An optional web interface is included for a quick view of account data and quotes.
+
+```bash
+npm run start:web
+```
+
+Open `http://localhost:3000` in your browser to see the dashboard.
+
 ---
 
 ## API Capabilities
@@ -117,6 +127,8 @@ The logic for your AI agent should be implemented in the `trading_agent/agent.js
 ├── scheduler.js          # Schedules the trading windows
 ├── package.json          # Project dependencies and scripts
 ├── .env.example          # Example environment file for Alpaca keys
+├── webServer.js          # Express server for the web dashboard
+├── frontend/             # Static files for the dashboard
 ├── lib/
 │   ├── logger.js         # Server-side logging utility
 │   └── shared/
