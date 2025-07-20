@@ -6,7 +6,7 @@ This project provides a sandboxed environment for testing the performance of AI 
 
 The benchmark is composed of two main components that run independently:
 
-1.  **MCP Server (`mcpServer.js`)**: This is the core of the benchmark. It spawns the trading agent as a child process and communicates with it over `stdin`/`stdout` using a simple JSON-based RPC protocol. It handles all interactions with the Alpaca API, such as fetching market data, submitting orders, and getting account information.
+1.  **MCP Server (`mcpHttpServer.js`)**: Exposes an HTTP RPC interface to Alpaca functions. Agents connect to this server using the shared `MCPClient` and no longer need to be spawned as child processes.
 
 2.  **Scheduler (`scheduler.js`)**: This component acts as the "hypervisor" for the trading environment. It runs on a predefined schedule based on US market hours and announces "trading windows" during which the AI agent is expected to perform its tasks. This simulates real-world trading sessions.
 
@@ -61,11 +61,11 @@ The benchmark is composed of two main components that run independently:
 The system traditionally requires two separate terminal sessions to run correctly.
 
 **1. Terminal 1: Start the MCP Server**
-This server will start the agent and listen for requests.
+This server exposes an HTTP RPC interface for agents.
 ```bash
 npm start
 ```
-You should see messages indicating the server and agent have started.
+You should see a message indicating the server is listening on a port.
 
 **2. Terminal 2: Start the Scheduler**
 This will trigger the trading windows at the scheduled times.
@@ -74,7 +74,7 @@ npm run start:scheduler
 ```
 You should see the message: `Scheduler started. Waiting for the next trading window.`
 
-The agent will be started by the MCP server. When the scheduler announces that a trading window is open, the agent will execute the logic defined in `agent.js`.
+The scheduler now starts the agent process itself. Set `AGENT_CMD` to the CLI command for your model (defaults to the provided Node agent). The scheduler passes `MCP_SERVER_URL` so the agent can connect to the running server.
 
 **Convenience Command**
 
@@ -84,7 +84,7 @@ If you prefer to launch both processes from a single terminal, use the provided 
 npm run start:all
 ```
 
-This starts the MCP server and scheduler as child processes and forwards their output to the console.
+This starts the HTTP MCP server and scheduler as child processes and forwards their output to the console.
 
 ### Web Dashboard
 
@@ -175,6 +175,11 @@ APCA_API_SECRET=YOUR_SECRET_KEY
 endpoint. The trading agent also accepts a `MODEL_NAME` variable. When set it is
 combined with the current date to create a run ID and all agent logs are written
 to `trading_agent/logs/<runId>/agent.log`.
+
+Additional variables:
+
+- `MCP_PORT` sets the port for the HTTP server (default `4000`).
+- `AGENT_CMD` command used by the scheduler to launch your agent.
 
 ### Logging Locations
 

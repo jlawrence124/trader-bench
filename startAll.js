@@ -9,7 +9,7 @@ function startProcess(script) {
     return proc;
 }
 
-const server = startProcess('mcpServer.js');
+const server = startProcess('mcpHttpServer.js');
 const scheduler = startProcess('scheduler.js');
 
 function shutdown() {
