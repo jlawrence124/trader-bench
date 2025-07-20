@@ -28,6 +28,39 @@ class MCPClient {
         this.logger.info('MCP Client initialized and ready for requests');
     }
 
+    // Convenience wrappers for supported RPC calls
+    getCapabilities() {
+        return this.sendRequest('getCapabilities');
+    }
+
+    getMarketData(symbol) {
+        return this.sendRequest('getMarketData', [symbol]);
+    }
+
+    submitOrder(orderDetails) {
+        return this.sendRequest('submitOrder', [orderDetails]);
+    }
+
+    cancelOrder(orderId) {
+        return this.sendRequest('cancelOrder', [orderId]);
+    }
+
+    getPositions() {
+        return this.sendRequest('getPositions');
+    }
+
+    getAccountInfo() {
+        return this.sendRequest('getAccountInfo');
+    }
+
+    getHistoricalBars(symbol, timeframe, start, end) {
+        return this.sendRequest('getHistoricalBars', [symbol, timeframe, start, end]);
+    }
+
+    getPerformanceMetrics() {
+        return this.sendRequest('getPerformanceMetrics');
+    }
+
     // Process the incoming data buffer
     processBuffer() {
         let newlineIndex;
