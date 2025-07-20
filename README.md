@@ -10,7 +10,7 @@ The benchmark is composed of two main components that run independently:
 
 2.  **Scheduler (`scheduler.js`)**: This component acts as the "hypervisor" for the trading environment. It runs on a predefined schedule based on US market hours and announces "trading windows" during which the AI agent is expected to perform its tasks. This simulates real-world trading sessions.
 
-3.  **Trading Agent (`trading_agent/`)**: This is the isolated environment where the AI's trading logic resides. The agent is provided with a client library (`mcpClient.js`) to communicate with the MCP Server but has no direct access to any other part of the benchmark's code. This ensures that the agent's performance is evaluated solely on its ability to interact with the provided API.
+3.  **Trading Agent (`trading_agent/`)**: This is the isolated environment where the AI's trading logic resides. The agent uses the shared `mcpClient.js` module to communicate with the MCP Server but has no direct access to any other part of the benchmark's code. This ensures that the agent's performance is evaluated solely on its ability to interact with the provided API.
 
 ---
 
@@ -117,10 +117,12 @@ The logic for your AI agent should be implemented in the `trading_agent/agent.js
 ├── package.json          # Project dependencies and scripts
 ├── .env.example          # Example environment file for Alpaca keys
 ├── lib/
-│   └── mcpClient.js      # Client library for agent-server communication
+│   ├── logger.js         # Server-side logging utility
+│   └── shared/
+│       └── mcpClient.js  # Shared client library for agent-server communication
 └── trading_agent/
     ├── agent.js          # The AI agent's trading logic
     ├── package.json      # The agent's own dependencies
     └── lib/
-        └── mcpClient.js  # A copy of the client for the agent
+        └── logger.js     # Agent-specific logger factory
 ```
