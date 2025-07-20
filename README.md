@@ -18,7 +18,7 @@ The benchmark is composed of two main components that run independently:
 
 ### Prerequisites
 
-*   [Node.js](https://nodejs.org/) (v14 or later)
+*   [Node.js](https://nodejs.org/) (v18 or later recommended)
 *   An [Alpaca paper trading account](https://app.alpaca.markets/signup) to get your API keys.
 
 ### Installation
@@ -114,3 +114,56 @@ The logic for your AI agent should be implemented in the `trading_agent/agent.js
     └── lib/
         └── mcpClient.js  # A copy of the client for the agent
 ```
+
+## Configuration
+
+### Environment Variables
+
+The `.env` file stores your Alpaca credentials. Copy `.env.example` and add your
+keys:
+
+```bash
+cp .env.example .env
+```
+
+```
+APCA_API_KEY=YOUR_API_KEY
+APCA_API_SECRET=YOUR_SECRET_KEY
+# APCA_API_BASE_URL=https://paper-api.alpaca.markets
+```
+
+`APCA_API_BASE_URL` is optional if you need to point to a different Alpaca
+endpoint. The trading agent also accepts a `MODEL_NAME` variable. When set it is
+combined with the current date to create a run ID and all agent logs are written
+to `trading_agent/logs/<runId>/agent.log`.
+
+### Logging Locations
+
+Benchmark logs are written to `logs/trading_YYYY-MM-DD.log` in the project root.
+Each agent run writes to its own folder under `trading_agent/logs/`.
+
+### Adjusting Trading Windows
+
+Edit `scheduler.js` to change the trading schedule. The `tradingTimes` array
+holds cron expressions for window start times and `tradingWindowMinutes`
+controls how long each window stays open (default is two minutes).
+
+## Creating a Custom Agent Strategy
+
+The default agent in `trading_agent/agent.js` logs into the benchmark and shows
+basic API usage. Replace the `TODO` block in `runTradingLogic()` with your own
+strategy using the `MCPClient` methods. Example:
+
+```javascript
+// Example strategy snippet inside runTradingLogic
+const orderDetails = {
+    symbol: 'AAPL',
+    qty: 1,
+    side: 'buy',
+    type: 'market',
+    time_in_force: 'day'
+};
+const orderResult = await mcpClient.submitOrder(orderDetails);
+logger.info('Submitted order:', orderResult);
+```
+
