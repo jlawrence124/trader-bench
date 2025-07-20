@@ -7,56 +7,14 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="style.css">
+  <script src="https://cdn.tailwindcss.com"></script>
 </head>
-<body>
-  <header>
-    <h1>AI Trading Dashboard</h1>
-  </header>
+<body class="bg-gray-50 font-['Roboto']">
+  <div id="root" class="min-h-screen flex flex-col"></div>
 
-  <main id="setup-screen" class="hidden">
-    <h2>Enter Alpaca Credentials</h2>
-    <div class="form-row">
-      <input id="api-key" placeholder="API Key">
-    </div>
-    <div class="form-row">
-      <input id="api-secret" placeholder="API Secret">
-    </div>
-    <button id="save-keys">Save</button>
-  </main>
-
-  <main id="dashboard" class="hidden">
-    <nav class="tabs">
-      <button class="tab active" data-target="runs">Recent Runs</button>
-      <button class="tab" data-target="logs">Logs</button>
-      <button class="tab" disabled>Leaderboard (Coming Soon)</button>
-    </nav>
-
-    <section id="runs" class="tab-content">
-      <table id="runs-table">
-        <thead>
-          <tr>
-            <th>Model</th>
-            <th>Date</th>
-            <th>S&amp;P Gain ($)</th>
-            <th>Portfolio Gain ($)</th>
-            <th>Diff (%)</th>
-          </tr>
-        </thead>
-        <tbody></tbody>
-      </table>
-    </section>
-
-    <section id="logs" class="tab-content hidden">
-      <select id="log-select"></select>
-      <pre id="log-content"></pre>
-    </section>
-
-    <section id="leaderboard" class="tab-content hidden">
-      <p>Leaderboard under construction...</p>
-    </section>
-  </main>
-
-  <script src="script.js"></script>
+  <script crossorigin src="https://unpkg.com/react@18/umd/react.development.js"></script>
+  <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <script type="text/babel" src="script.js"></script>
 </body>
 </html>

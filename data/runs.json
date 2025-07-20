@@ -1,13 +1,15 @@
 [
   {
     "model": "default_agent",
-    "date": "2025-07-19",
+    "startDate": "2025-07-19",
+    "endDate": "2025-07-19",
     "spyGain": -200,
     "portfolioGain": -150
   },
   {
     "model": "default_agent",
-    "date": "2025-07-20",
+    "startDate": "2025-07-20",
+    "endDate": "2025-07-20",
     "spyGain": 300,
     "portfolioGain": 450
   }

@@ -88,7 +88,7 @@ This starts the MCP server and scheduler as child processes and forwards their o
 
 ### Web Dashboard
 
-A simple dashboard is available to view recent runs and logs. Start it with:
+A simple React-based dashboard is available to view recent runs and logs. Start it with:
 
 ```bash
 npm run start:web
@@ -96,10 +96,10 @@ npm run start:web
 
 Open `http://localhost:3000` in your browser. If Alpaca API keys are not found
 in your environment or `.env` file, you will be prompted to enter them. The
-default view shows a table of recent benchmark runs with S&P and portfolio gains
-displayed in dollars and a percentage difference column. A logs tab lets you
-read server or agent logs, and a placeholder tab for the future leaderboard is
-also included.
+interface uses **React** and **Tailwind CSS** for a modern look. The runs table
+displays start and end dates, S&P and portfolio gains (in dollars), and a
+percentage difference column. A logs tab lets you read server or agent logs, and
+a placeholder tab for the future leaderboard is also included.
 
 ---
 
