@@ -37,6 +37,7 @@ let benchmarkProcess = null;
 let runStartTime = null;
 let serverLogFile = null;
 let agentLogFile = null;
+let modelOutputFile = null;
 
 // ----- Utility Endpoints -----
 app.get('/api/env-check', (req, res) => {
@@ -134,6 +135,7 @@ app.post('/api/start-benchmark', (req, res) => {
   runStartTime = new Date();
   serverLogFile = path.join(logsDir, `trading_${runStartTime.toISOString().split('T')[0]}.log`);
   agentLogFile = null;
+  modelOutputFile = null;
   benchmarkProcess.on('close', () => { benchmarkProcess = null; });
   res.json({ running: true });
 });
@@ -157,6 +159,8 @@ app.get('/api/logs', (req, res) => {
     fs.readdirSync(agentLogsDir).forEach(dir => {
       const p = path.join(agentLogsDir, dir, 'agent.log');
       if (fs.existsSync(p)) files.push(`agent/${dir}/agent.log`);
+      const m = path.join(agentLogsDir, dir, 'model_output.log');
+      if (fs.existsSync(m)) files.push(`agent/${dir}/model_output.log`);
     });
   }
   res.json(files);
@@ -175,6 +179,26 @@ app.get('/api/logs/:name(*)', (req, res) => {
 
 app.get('/api/run-log', (req, res) => {
   let output = '';
+
+  if (!serverLogFile && fs.existsSync(logsDir)) {
+    const files = fs.readdirSync(logsDir)
+      .filter(f => f.startsWith('trading_') && f.endsWith('.log'))
+      .map(f => ({ file: path.join(logsDir, f), time: fs.statSync(path.join(logsDir, f)).mtimeMs }))
+      .sort((a, b) => b.time - a.time);
+    if (files.length) serverLogFile = files[0].file;
+  }
+
+  if (!agentLogFile && fs.existsSync(agentLogsDir)) {
+    const dirs = fs.readdirSync(agentLogsDir)
+      .map(d => ({ dir: d, time: fs.statSync(path.join(agentLogsDir, d)).mtimeMs }))
+      .sort((a, b) => b.time - a.time);
+    if (dirs.length) {
+      const p = path.join(agentLogsDir, dirs[0].dir, 'agent.log');
+      if (fs.existsSync(p)) agentLogFile = p;
+      const mo = path.join(agentLogsDir, dirs[0].dir, 'model_output.log');
+      if (fs.existsSync(mo)) modelOutputFile = mo;
+    }
+  }
 
   const filterLog = (text) => {
     const lines = text.split('\n').filter(l => l.trim());
@@ -198,20 +222,15 @@ app.get('/api/run-log', (req, res) => {
   }
 
   // ----- agent log -----
-  if (!agentLogFile && fs.existsSync(agentLogsDir)) {
-    const dirs = fs.readdirSync(agentLogsDir).map(d => {
-      const full = path.join(agentLogsDir, d);
-      return { dir: d, time: fs.statSync(full).mtimeMs };
-    }).sort((a, b) => b.time - a.time);
-    if (dirs.length) {
-      const p = path.join(agentLogsDir, dirs[0].dir, 'agent.log');
-      if (fs.existsSync(p)) agentLogFile = p;
-    }
-  }
   if (agentLogFile && fs.existsSync(agentLogFile)) {
     const content = tailFile(agentLogFile);
     const lines = filterLog(content);
     if (lines) output += '\n--- agent log ---\n' + lines;
+  }
+
+  if (modelOutputFile && fs.existsSync(modelOutputFile)) {
+    const content = tailFile(modelOutputFile);
+    if (content.trim()) output += '\n--- model output ---\n' + content.trim();
   }
 
   res.type('text/plain').send(output);

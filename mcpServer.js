@@ -20,7 +20,19 @@ agent.stdout.on('data', (data) => {
 
 // Handle stderr from the agent
 agent.stderr.on('data', (data) => {
-    logger.error(`Agent STDERR: ${data.toString().trim()}`);
+    const text = data.toString().trim();
+    const match = text.match(/^(\w+):\s*/);
+    let level = 'info';
+    let message = text;
+    if (match) {
+        level = match[1].toLowerCase();
+        message = text.slice(match[0].length);
+    }
+    if (typeof logger[level] === 'function') {
+        logger[level](`Agent ${message}`);
+    } else {
+        logger.info(`Agent ${message}`);
+    }
 });
 
 // Handle agent exit
