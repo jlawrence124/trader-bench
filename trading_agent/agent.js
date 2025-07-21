@@ -43,8 +43,8 @@ let initialPrompt = '';
 try {
     initialPrompt = fs.readFileSync(promptPath, 'utf8');
     logger.info(`Initial prompt loaded from ${promptPath}`);
-    // Send the prompt to the underlying model/stdout before any trading logic
-    console.log(initialPrompt);
+    // Record the prompt in the model output log instead of stdout
+    logModelOutput(initialPrompt);
 } catch (err) {
     logger.warn(`Failed to load prompt file at ${promptPath}: ${err.message}`);
 }
