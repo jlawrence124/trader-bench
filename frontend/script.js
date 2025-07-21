@@ -35,7 +35,8 @@ function App() {
   const [overrideEdit, setOverrideEdit] = useState(false);
   const [missingVars, setMissingVars] = useState([]);
   const [missingInputs, setMissingInputs] = useState({});
-  const logRef = useRef(null);
+  const logRef = useRef(null); // benchmark running log
+  const logViewRef = useRef(null); // selected log viewer
   const [connectionStatus, setConnectionStatus] = useState('');
   const [initialEquity, setInitialEquity] = useState(null);
   const [equityHistory, setEquityHistory] = useState([]);
@@ -213,6 +214,12 @@ function App() {
       logRef.current.scrollTop = logRef.current.scrollHeight;
     }
   }, [benchmarkLog]);
+
+  useEffect(() => {
+    if (logViewRef.current) {
+      logViewRef.current.scrollTop = logViewRef.current.scrollHeight;
+    }
+  }, [logContent]);
 
   useEffect(() => {
     if (!equityChartRef.current) return;
@@ -529,8 +536,8 @@ function App() {
             {logs.map(f => <option key={f} value={f}>{f}</option>)}
           </select>
           <button className="ml-2 px-3 py-1 bg-gray-200 dark:bg-gray-700 rounded" onClick={clearLogContent}>Clear</button>
-          <pre className="bg-gray-100 dark:bg-gray-800 p-4 rounded-md h-96 overflow-auto whitespace-pre-wrap">{logContent}</pre>
-        </section>
+          <pre ref={logViewRef} className="bg-gray-100 dark:bg-gray-800 p-4 rounded-md h-96 overflow-auto whitespace-pre-wrap">{logContent}</pre>
+          </section>
       )}
 
       {activeTab === 'overview' && (
