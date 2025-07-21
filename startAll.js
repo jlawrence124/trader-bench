@@ -9,13 +9,15 @@ function startProcess(script) {
     return proc;
 }
 
-const server = startProcess('mcpHttpServer.js');
+const server = startProcess('mcpServer.js');
 const scheduler = startProcess('scheduler.js');
+const webServer = startProcess('webServer.js');
 
 function shutdown() {
     console.log('Shutting down child processes...');
     server.kill();
     scheduler.kill();
+    webServer.kill();
     process.exit();
 }
 
