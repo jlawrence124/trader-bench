@@ -100,7 +100,8 @@ interface uses **React** and **Tailwind CSS** for a modern look with automatic
 dark mode based on your system preferences. The runs table now shows start,
 first trading, and end datetimes with S&P and portfolio gains (in dollars) plus
 a percentage difference column. Clicking a row reveals side-by-side charts of
-the portfolio versus the S&P 500 and the running difference. A logs tab lets you
+the portfolio versus the S&P 500 (scaled to your starting equity) and the running difference.
+A logs tab lets you
 read server or agent logs,
 a Benchmark tab lets you start the processes, test your Alpaca connection (or call `/api/test-alpaca` directly),
 and monitor the combined running log (server and agent output). A separate **Positions** tab shows account

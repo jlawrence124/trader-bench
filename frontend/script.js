@@ -291,6 +291,9 @@ function App() {
     const labels = Array.from({ length: len }, (_, i) => i + 1);
     const equityData = run.equityHistory.slice(0, len);
     const spyData = run.spyHistory.slice(0, len);
+    const startEquity = equityData[0];
+    const startSpy = spyData[0] || 1;
+    const spyEquity = spyData.map(v => startEquity * (v / startSpy));
 
     if (performanceChartInstance.current) performanceChartInstance.current.destroy();
     const ctx1 = performanceChartRef.current.getContext('2d');
@@ -308,7 +311,7 @@ function App() {
           },
           {
             label: 'S&P 500',
-            data: spyData,
+            data: spyEquity,
             borderColor: '#f97316',
             backgroundColor: 'rgba(249,115,22,0.3)',
             tension: 0.1,
@@ -319,16 +322,14 @@ function App() {
         responsive: true,
         maintainAspectRatio: false,
         scales: { x: { display: false } },
-        plugins: { legend: { display: true, position: 'top' } },
+        plugins: {
+          legend: { display: true, position: 'top' },
+          title: { display: true, text: 'Portfolio vs S&P 500' },
+        },
       },
     });
 
-    const startEquity = equityData[0];
-    const startSpy = spyData[0] || 1;
-    const diffData = equityData.map((val, idx) => {
-      const spyEq = startEquity * (spyData[idx] / startSpy);
-      return val - spyEq;
-    });
+    const diffData = equityData.map((val, idx) => val - spyEquity[idx]);
 
     if (diffChartInstance.current) diffChartInstance.current.destroy();
     const ctx2 = diffChartRef.current.getContext('2d');
@@ -350,7 +351,10 @@ function App() {
         responsive: true,
         maintainAspectRatio: false,
         scales: { x: { display: false } },
-        plugins: { legend: { display: false } },
+        plugins: {
+          legend: { display: false },
+          title: { display: true, text: 'Difference' },
+        },
       },
     });
 
