@@ -189,26 +189,33 @@ function App() {
 
   if (!hasKeys) {
     const saveVar = (name) => {
-      if (name === 'AGENT_CMD') {
-        const cmd = missingInputs.AGENT_CMD === 'other' ? missingInputs.AGENT_CMD_OTHER : missingInputs.AGENT_CMD;
-        if (!cmd) return;
+      const postVar = (value) => {
         fetch('/api/set-env-var', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ name, value: cmd })
+          body: JSON.stringify({ name, value })
         }).then(() => {
-          setMissingVars(v => v.filter(x => x !== name));
+          setMissingVars(v => {
+            const updated = v.filter(x => x !== name);
+            if (updated.length === 0) {
+              setHasKeys(true);
+              loadRuns();
+              loadLogList();
+              loadRunStatus();
+            }
+            return updated;
+          });
         });
+      };
+
+      if (name === 'AGENT_CMD') {
+        const cmd = missingInputs.AGENT_CMD === 'other' ? missingInputs.AGENT_CMD_OTHER : missingInputs.AGENT_CMD;
+        if (!cmd) return;
+        postVar(cmd);
         return;
       }
       if (!missingInputs[name]) return;
-      fetch('/api/set-env-var', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name, value: missingInputs[name] })
-      }).then(() => {
-        setMissingVars(v => v.filter(x => x !== name));
-      });
+      postVar(missingInputs[name]);
     };
 
     return (
