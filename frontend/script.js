@@ -110,6 +110,7 @@ function App() {
   };
 
   const startBenchmark = () => {
+    clearBenchmarkLog();
     fetch('/api/start-benchmark', { method: 'POST' })
       .then(() => {
         setRunActive(true);
