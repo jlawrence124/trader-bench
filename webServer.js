@@ -132,9 +132,17 @@ app.post('/api/start-benchmark', (req, res) => {
   if (benchmarkProcess) return res.json({ running: true });
   benchmarkProcess = spawn('node', ['startAll.js']);
   runStartTime = new Date();
-  serverLogFile = path.join(logsDir, `trading_${runStartTime.toISOString().split('T')[0]}.log`);
+  serverLogFile = path.join(
+    logsDir,
+    `trading_${runStartTime.toISOString().split('T')[0]}.log`
+  );
   agentLogFile = null;
-  benchmarkProcess.on('close', () => { benchmarkProcess = null; });
+  benchmarkProcess.on('close', () => {
+    benchmarkProcess = null;
+    runStartTime = null;
+    serverLogFile = null;
+    agentLogFile = null;
+  });
   res.json({ running: true });
 });
 
@@ -177,9 +185,9 @@ app.get('/api/run-log', (req, res) => {
   let output = '';
 
   const filterLog = (text) => {
-    const lines = text.split('\n').filter(l => l.trim());
-    if (!runStartTime) return lines.slice(-100).join('\n');
-    const filtered = lines.filter(l => {
+    if (!runStartTime) return '';
+    const lines = text.split('\n').filter((l) => l.trim());
+    const filtered = lines.filter((l) => {
       try {
         const t = JSON.parse(l).timestamp;
         return !t || new Date(t) >= runStartTime;
