@@ -19,6 +19,7 @@ function App() {
   const [benchmarkLog, setBenchmarkLog] = useState('');
   const [account, setAccount] = useState(null);
   const [positions, setPositions] = useState([]);
+  const [buyStatus, setBuyStatus] = useState('');
   const [selectedPosition, setSelectedPosition] = useState(null);
   const [envVars, setEnvVars] = useState([]);
   const [showSecret, setShowSecret] = useState({});
@@ -151,6 +152,20 @@ function App() {
       .catch(err => {
         const msg = err && err.error ? err.error : err.message || 'Error';
         setConnectionStatus(`Connection failed: ${msg}`);
+      });
+  };
+
+  const buyOklo = () => {
+    setBuyStatus('Placing order...');
+    fetch('/api/buy-oklo', { method: 'POST' })
+      .then(async res => {
+        const data = await res.json();
+        if (!res.ok) throw data;
+        setBuyStatus('Order submitted');
+      })
+      .catch(err => {
+        const msg = err && err.error ? err.error : err.message || 'Error';
+        setBuyStatus(`Order failed: ${msg}`);
       });
   };
 
@@ -529,7 +544,7 @@ function App() {
                 {equityHistory.length >= 3 ? (
                   <>
                     <button className="mt-2 mb-1 px-3 py-1 bg-blue-500 text-white rounded" onClick={updateEquityChart}>Update Chart</button>
-                    <canvas ref={equityChartRef} className="mt-1 w-full max-w-md mx-auto" style={{ height: '20vh' }}></canvas>
+                    <canvas ref={equityChartRef} className="mt-1 mx-auto w-1/3" style={{ height: '20vh' }}></canvas>
                   </>
                 ) : (
                   <p className="text-sm mt-2">Equity chart will appear once more data is available.</p>
@@ -539,7 +554,7 @@ function App() {
                 <h3 className="font-bold mb-1">Positions</h3>
                 <p>Total PNL: ${positions.reduce((a,p)=>a+parseFloat(p.unrealized_pl||0),0).toFixed(2)}</p>
                 <button className="mb-1 px-3 py-1 bg-blue-500 text-white rounded" onClick={updatePositionsChart}>Update Chart</button>
-                <canvas ref={positionsChartRef} className="mb-2 w-full max-w-md mx-auto" style={{ height: '20vh' }}></canvas>
+                <canvas ref={positionsChartRef} className="mb-2 mx-auto w-1/3" style={{ height: '20vh' }}></canvas>
                 <table className="min-w-full text-sm divide-y divide-gray-300 dark:divide-gray-700">
                   <thead>
                     <tr className="bg-gray-100 dark:bg-gray-800">
@@ -570,6 +585,10 @@ function App() {
             <input type="checkbox" className="mr-2" checked={overrideEdit} onChange={e => setOverrideEdit(e.target.checked)} />
             Allow editing while run is active
           </label>
+          <div>
+            <button className="px-3 py-1 bg-blue-500 text-white rounded" onClick={buyOklo}>Buy 1 OKLO</button>
+            {buyStatus && <span className="ml-2 text-sm">{buyStatus}</span>}
+          </div>
           <table className="min-w-full text-sm divide-y divide-gray-300 dark:divide-gray-700">
             <thead>
               <tr className="bg-gray-100 dark:bg-gray-800">
