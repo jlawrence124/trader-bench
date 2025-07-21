@@ -382,6 +382,9 @@ function App() {
     );
   }
 
+  const totalGainLoss = positions.reduce((a,p)=>a+parseFloat(p.unrealized_pl || 0),0);
+  const dayChange = account && account.last_equity ? parseFloat(account.equity) - parseFloat(account.last_equity) : 0;
+
   return (
     <div className="flex-1 flex flex-col bg-white dark:bg-gray-900">
       <header className="bg-gradient-to-r from-blue-500 to-indigo-600 text-white py-6 text-center shadow-lg">
@@ -459,6 +462,18 @@ function App() {
               <h3 className="text-sm text-gray-500">Buying Power</h3>
               <p className="text-xl font-bold">{account ? parseFloat(account.buying_power).toFixed(2) : '--'}</p>
             </div>
+            <div className="bg-white dark:bg-gray-800 rounded shadow p-4">
+              <h3 className="text-sm text-gray-500">Positions</h3>
+              <p className="text-xl font-bold">{positions.length}</p>
+            </div>
+            <div className="bg-white dark:bg-gray-800 rounded shadow p-4">
+              <h3 className="text-sm text-gray-500">Gain/Loss</h3>
+              <p className={`text-xl font-bold ${totalGainLoss >= 0 ? 'text-green-600' : 'text-red-600'}`}>{totalGainLoss.toFixed(2)}</p>
+            </div>
+            <div className="bg-white dark:bg-gray-800 rounded shadow p-4">
+              <h3 className="text-sm text-gray-500">Day Change</h3>
+              <p className={`text-xl font-bold ${dayChange >= 0 ? 'text-green-600' : 'text-red-600'}`}>{dayChange.toFixed(2)}</p>
+            </div>
           </div>
           <button className="px-3 py-1 bg-blue-500 text-white rounded" onClick={() => {loadAccount(); loadPositions();}}>Refresh</button>
         </section>
@@ -514,7 +529,7 @@ function App() {
                 {equityHistory.length >= 3 ? (
                   <>
                     <button className="mt-2 mb-1 px-3 py-1 bg-blue-500 text-white rounded" onClick={updateEquityChart}>Update Chart</button>
-                    <canvas ref={equityChartRef} style={{ width: '33%', height: '20vh' }} className="mt-1"></canvas>
+                    <canvas ref={equityChartRef} className="mt-1 w-full max-w-md mx-auto" style={{ height: '20vh' }}></canvas>
                   </>
                 ) : (
                   <p className="text-sm mt-2">Equity chart will appear once more data is available.</p>
@@ -524,7 +539,7 @@ function App() {
                 <h3 className="font-bold mb-1">Positions</h3>
                 <p>Total PNL: ${positions.reduce((a,p)=>a+parseFloat(p.unrealized_pl||0),0).toFixed(2)}</p>
                 <button className="mb-1 px-3 py-1 bg-blue-500 text-white rounded" onClick={updatePositionsChart}>Update Chart</button>
-                <canvas ref={positionsChartRef} style={{ width: '33%', height: '20vh' }} className="mb-2"></canvas>
+                <canvas ref={positionsChartRef} className="mb-2 w-full max-w-md mx-auto" style={{ height: '20vh' }}></canvas>
                 <table className="min-w-full text-sm divide-y divide-gray-300 dark:divide-gray-700">
                   <thead>
                     <tr className="bg-gray-100 dark:bg-gray-800">
