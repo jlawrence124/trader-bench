@@ -80,14 +80,9 @@ function App() {
       }, 5000);
       return () => clearInterval(id);
     }
-    if (activeTab === 'positions') {
+    if (activeTab === 'positions' || activeTab === 'overview') {
       loadAccount();
       loadPositions();
-      const id = setInterval(() => {
-        loadAccount();
-        loadPositions();
-      }, 5000);
-      return () => clearInterval(id);
     }
     if (activeTab === 'debug') {
       loadRunStatus();
@@ -219,6 +214,14 @@ function App() {
       .then(data => {
         setPositions(data);
       });
+  };
+
+  const updateEquityChart = () => {
+    loadAccount();
+  };
+
+  const updatePositionsChart = () => {
+    loadPositions();
   };
 
   const loadLog = (name) => {
@@ -387,6 +390,7 @@ function App() {
 
       <nav className="bg-gray-100 dark:bg-gray-800 shadow flex flex-wrap gap-2 sm:gap-4 px-4 py-2 justify-center sm:justify-start">
         <button className={`px-3 py-1 rounded ${activeTab==='runs'?'bg-blue-500 text-white':'bg-gray-200 dark:bg-gray-700 dark:text-gray-200'}`} onClick={() => setActiveTab('runs')}>Recent Runs</button>
+        <button className={`px-3 py-1 rounded ${activeTab==='overview'?'bg-blue-500 text-white':'bg-gray-200 dark:bg-gray-700 dark:text-gray-200'}`} onClick={() => setActiveTab('overview')}>Overview</button>
         <button className={`px-3 py-1 rounded ${activeTab==='logs'?'bg-blue-500 text-white':'bg-gray-200 dark:bg-gray-700 dark:text-gray-200'}`} onClick={() => setActiveTab('logs')}>Logs</button>
         <button className={`px-3 py-1 rounded ${activeTab==='benchmark'?'bg-blue-500 text-white':'bg-gray-200 dark:bg-gray-700 dark:text-gray-200'}`} onClick={() => setActiveTab('benchmark')}>Benchmark</button>
         <button className={`px-3 py-1 rounded ${activeTab==='positions'?'bg-blue-500 text-white':'bg-gray-200 dark:bg-gray-700 dark:text-gray-200'}`} onClick={() => setActiveTab('positions')}>Positions</button>
@@ -440,6 +444,26 @@ function App() {
         </section>
       )}
 
+      {activeTab === 'overview' && (
+        <section className="p-4 space-y-4 flex-1 overflow-auto">
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 max-w-3xl mx-auto">
+            <div className="bg-white dark:bg-gray-800 rounded shadow p-4">
+              <h3 className="text-sm text-gray-500">Equity</h3>
+              <p className="text-xl font-bold">{account ? parseFloat(account.equity).toFixed(2) : '--'}</p>
+            </div>
+            <div className="bg-white dark:bg-gray-800 rounded shadow p-4">
+              <h3 className="text-sm text-gray-500">Cash</h3>
+              <p className="text-xl font-bold">{account ? parseFloat(account.cash).toFixed(2) : '--'}</p>
+            </div>
+            <div className="bg-white dark:bg-gray-800 rounded shadow p-4">
+              <h3 className="text-sm text-gray-500">Buying Power</h3>
+              <p className="text-xl font-bold">{account ? parseFloat(account.buying_power).toFixed(2) : '--'}</p>
+            </div>
+          </div>
+          <button className="px-3 py-1 bg-blue-500 text-white rounded" onClick={() => {loadAccount(); loadPositions();}}>Refresh</button>
+        </section>
+      )}
+
       {activeTab === 'benchmark' && (
         <section className="p-4 space-y-4 flex-1 overflow-auto">
           <button className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-md" onClick={startBenchmark}>Start Benchmark</button>
@@ -487,12 +511,20 @@ function App() {
                     )}
                   </>
                 )}
-                <canvas ref={equityChartRef} className="w-full max-w-xl h-40 mt-2"></canvas>
+                {equityHistory.length >= 3 ? (
+                  <>
+                    <button className="mt-2 mb-1 px-3 py-1 bg-blue-500 text-white rounded" onClick={updateEquityChart}>Update Chart</button>
+                    <canvas ref={equityChartRef} style={{ width: '33%', height: '20vh' }} className="mt-1"></canvas>
+                  </>
+                ) : (
+                  <p className="text-sm mt-2">Equity chart will appear once more data is available.</p>
+                )}
               </div>
               <div>
                 <h3 className="font-bold mb-1">Positions</h3>
                 <p>Total PNL: ${positions.reduce((a,p)=>a+parseFloat(p.unrealized_pl||0),0).toFixed(2)}</p>
-                <canvas ref={positionsChartRef} className="w-full max-w-xl h-40 mb-2"></canvas>
+                <button className="mb-1 px-3 py-1 bg-blue-500 text-white rounded" onClick={updatePositionsChart}>Update Chart</button>
+                <canvas ref={positionsChartRef} style={{ width: '33%', height: '20vh' }} className="mb-2"></canvas>
                 <table className="min-w-full text-sm divide-y divide-gray-300 dark:divide-gray-700">
                   <thead>
                     <tr className="bg-gray-100 dark:bg-gray-800">
