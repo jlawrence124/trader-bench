@@ -101,10 +101,12 @@ dark mode based on your system preferences. The runs table now shows start,
 first trading, and end datetimes with S&P and portfolio gains (in dollars) plus
 a percentage difference column. A logs tab lets you read server or agent logs,
 a Benchmark tab lets you start the processes and monitor the combined running
-log (server and agent output), account equity, and open positions. Each log
-viewer has a **Clear** button that only clears the browser view (the log files
-continue to grow on disk). A Debug tab lists important environment variables
-with secret values hidden by default. If no run is active you can edit these
+log (server and agent output). A separate **Positions** tab shows account
+equity, total P&L, and lets you drill into each holding for entry times and
+unrealized gains. Each log viewer has a **Clear** button that only clears the
+browser view (the log files continue to grow on disk). A Debug tab lists
+important environment variables with secret values hidden by default, and each
+one has an edit or **Clear** control. If no run is active you can edit these
 values directly from the UI and optionally override the restriction with a
 checkbox. A placeholder tab for the future leaderboard is also included.
 

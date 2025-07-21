@@ -73,22 +73,37 @@ app.post('/api/set-env-var', (req, res) => {
   if (benchmarkProcess && !override) {
     return res.status(400).json({ error: 'Benchmark is running' });
   }
+  let env = '';
+  if (fs.existsSync('.env')) env = fs.readFileSync('.env', 'utf8');
+
+  if (!value) {
+    delete process.env[name];
+    if (name === 'AGENT_CMD') delete process.env.MODEL_NAME;
+    env = env.replace(new RegExp(`^${name}=.*\n?`, 'm'), '');
+    if (name === 'AGENT_CMD') env = env.replace(/^MODEL_NAME=.*\n?/m, '');
+    fs.writeFileSync('.env', env.trim() + '\n');
+    return res.json({ success: true });
+  }
+
   process.env[name] = value;
   if (name === 'AGENT_CMD' && !process.env.MODEL_NAME) {
     const model = value.split(/\s+/)[0].toLowerCase();
     process.env.MODEL_NAME = model;
   }
-  let env = '';
-  if (fs.existsSync('.env')) env = fs.readFileSync('.env', 'utf8');
+
   const line = new RegExp(`^${name}=.*$`, 'm');
   if (line.test(env)) {
     env = env.replace(line, `${name}=${value}`);
   } else {
     env += `\n${name}=${value}`;
   }
-  if (name === 'AGENT_CMD' && !/MODEL_NAME=/.test(env)) {
+  if (name === 'AGENT_CMD') {
     const model = process.env.MODEL_NAME;
-    env += `\nMODEL_NAME=${model}`;
+    if (/MODEL_NAME=/.test(env)) {
+      env = env.replace(/^MODEL_NAME=.*$/m, `MODEL_NAME=${model}`);
+    } else {
+      env += `\nMODEL_NAME=${model}`;
+    }
   }
   fs.writeFileSync('.env', env.trim() + '\n');
   res.json({ success: true });

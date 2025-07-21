@@ -1,4 +1,4 @@
-const { useState, useEffect } = React;
+const { useState, useEffect, useRef } = React;
 
 const formatDateTime = (val) => {
   if (!val) return '';
@@ -19,6 +19,7 @@ function App() {
   const [benchmarkLog, setBenchmarkLog] = useState('');
   const [account, setAccount] = useState(null);
   const [positions, setPositions] = useState([]);
+  const [selectedPosition, setSelectedPosition] = useState(null);
   const [envVars, setEnvVars] = useState([]);
   const [showSecret, setShowSecret] = useState({});
   const [editing, setEditing] = useState({});
@@ -27,6 +28,7 @@ function App() {
   const [overrideEdit, setOverrideEdit] = useState(false);
   const [missingVars, setMissingVars] = useState([]);
   const [missingInputs, setMissingInputs] = useState({});
+  const logRef = useRef(null);
 
   const infoMap = {
     MCP_PORT: 'Port for the HTTP MCP server (e.g., 4000)',
@@ -65,11 +67,18 @@ function App() {
   useEffect(() => {
     if (activeTab === 'benchmark') {
       loadBenchmarkLog();
-      loadAccount();
-      loadPositions();
       const id = setInterval(() => {
         loadBenchmarkLog();
         loadRunStatus();
+      }, 5000);
+      return () => clearInterval(id);
+    }
+    if (activeTab === 'positions') {
+      loadAccount();
+      loadPositions();
+      const id = setInterval(() => {
+        loadAccount();
+        loadPositions();
       }, 5000);
       return () => clearInterval(id);
     }
@@ -121,6 +130,12 @@ function App() {
       .then(data => setAccount(data));
   };
 
+  useEffect(() => {
+    if (logRef.current) {
+      logRef.current.scrollTop = logRef.current.scrollHeight;
+    }
+  }, [benchmarkLog]);
+
   const loadPositions = () => {
     fetch('/api/positions')
       .then(res => res.json())
@@ -156,6 +171,16 @@ function App() {
       body: JSON.stringify({ name, value: editVals[name], override: overrideEdit })
     }).then(() => {
       setEditing(e => ({ ...e, [name]: false }));
+      loadEnvVars();
+    });
+  };
+
+  const clearEnvVar = (name) => {
+    fetch('/api/set-env-var', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name, value: '', override: overrideEdit })
+    }).then(() => {
       loadEnvVars();
     });
   };
@@ -278,6 +303,7 @@ function App() {
         <button className={`px-3 py-1 rounded ${activeTab==='runs'?'bg-blue-500 text-white':'bg-gray-200 dark:bg-gray-700 dark:text-gray-200'}`} onClick={() => setActiveTab('runs')}>Recent Runs</button>
         <button className={`px-3 py-1 rounded ${activeTab==='logs'?'bg-blue-500 text-white':'bg-gray-200 dark:bg-gray-700 dark:text-gray-200'}`} onClick={() => setActiveTab('logs')}>Logs</button>
         <button className={`px-3 py-1 rounded ${activeTab==='benchmark'?'bg-blue-500 text-white':'bg-gray-200 dark:bg-gray-700 dark:text-gray-200'}`} onClick={() => setActiveTab('benchmark')}>Benchmark</button>
+        <button className={`px-3 py-1 rounded ${activeTab==='positions'?'bg-blue-500 text-white':'bg-gray-200 dark:bg-gray-700 dark:text-gray-200'}`} onClick={() => setActiveTab('positions')}>Positions</button>
         <button className={`px-3 py-1 rounded ${activeTab==='debug'?'bg-blue-500 text-white':'bg-gray-200 dark:bg-gray-700 dark:text-gray-200'}`} onClick={() => setActiveTab('debug')}>Debug</button>
         <button className="px-3 py-1 rounded bg-gray-300 dark:bg-gray-700 text-gray-500" disabled>Leaderboard (Coming Soon)</button>
       </nav>
@@ -332,35 +358,65 @@ function App() {
         <section className="p-4 space-y-4 flex-1 overflow-auto">
           <button className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-md" onClick={startBenchmark}>Start Benchmark</button>
           <div>
-            <h3 className="font-bold mb-1">Account</h3>
-            {account && (
-              <p>Equity: ${parseFloat(account.equity).toFixed(2)}</p>
-            )}
-          </div>
-          <div>
-            <h3 className="font-bold mb-1">Positions</h3>
-            <table className="min-w-full text-sm divide-y divide-gray-300 dark:divide-gray-700">
-              <thead>
-                <tr className="bg-gray-100 dark:bg-gray-800">
-                  <th className="p-1 text-left">Symbol</th>
-                  <th className="p-1 text-left">Qty</th>
-                </tr>
-              </thead>
-              <tbody>
-                {positions.map(p => (
-                  <tr key={p.symbol}>
-                    <td className="p-1">{p.symbol}</td>
-                    <td className="p-1">{p.qty}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-          <div>
             <h3 className="font-bold mb-1">Running Log</h3>
             <button className="mb-1 px-3 py-1 bg-gray-200 dark:bg-gray-700 rounded" onClick={clearBenchmarkLog}>Clear</button>
-            <pre className="bg-gray-100 dark:bg-gray-800 p-2 rounded-md h-60 overflow-auto whitespace-pre-wrap">{benchmarkLog}</pre>
+            <pre ref={logRef} className="bg-gray-100 dark:bg-gray-800 p-2 rounded-md h-60 overflow-auto whitespace-pre-wrap">{benchmarkLog}</pre>
           </div>
+        </section>
+      )}
+
+      {activeTab === 'positions' && (
+        <section className="p-4 space-y-4 flex-1 overflow-auto">
+          {selectedPosition ? (
+            <div>
+              <button className="mb-2 underline" onClick={() => setSelectedPosition(null)}>Back</button>
+              <h3 className="font-bold mb-1">{selectedPosition.symbol}</h3>
+              <p>Quantity: {selectedPosition.qty}</p>
+              {'avg_entry_price' in selectedPosition && (
+                <p>Avg Entry Price: ${parseFloat(selectedPosition.avg_entry_price).toFixed(2)}</p>
+              )}
+              {'current_price' in selectedPosition && (
+                <p>Current Price: ${parseFloat(selectedPosition.current_price).toFixed(2)}</p>
+              )}
+              {'unrealized_pl' in selectedPosition && (
+                <p>PNL: ${parseFloat(selectedPosition.unrealized_pl).toFixed(2)}</p>
+              )}
+              {'avg_entry_time' in selectedPosition && (
+                <p>Entry Time: {formatDateTime(selectedPosition.avg_entry_time)}</p>
+              )}
+            </div>
+          ) : (
+            <>
+              <div>
+                <h3 className="font-bold mb-1">Account</h3>
+                {account && (
+                  <p>Equity: ${parseFloat(account.equity).toFixed(2)}</p>
+                )}
+              </div>
+              <div>
+                <h3 className="font-bold mb-1">Positions</h3>
+                <p>Total PNL: ${positions.reduce((a,p)=>a+parseFloat(p.unrealized_pl||0),0).toFixed(2)}</p>
+                <table className="min-w-full text-sm divide-y divide-gray-300 dark:divide-gray-700">
+                  <thead>
+                    <tr className="bg-gray-100 dark:bg-gray-800">
+                      <th className="p-1 text-left">Symbol</th>
+                      <th className="p-1 text-left">Qty</th>
+                      <th className="p-1 text-left">PNL</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {positions.map(p => (
+                      <tr key={p.symbol} className="hover:bg-indigo-50 dark:hover:bg-indigo-900 cursor-pointer" onClick={() => setSelectedPosition(p)}>
+                        <td className="p-1">{p.symbol}</td>
+                        <td className="p-1">{p.qty}</td>
+                        <td className="p-1">${parseFloat(p.unrealized_pl||0).toFixed(2)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </>
+          )}
         </section>
       )}
 
@@ -401,7 +457,10 @@ function App() {
                           </button>
                         )}
                         {(!runActive || overrideEdit) && (
-                          <button className="ml-2 text-sm" onClick={() => setEditing(e => ({ ...e, [v.name]: true }))}>✏️</button>
+                          <>
+                            <button className="ml-2 text-sm" onClick={() => setEditing(e => ({ ...e, [v.name]: true }))}>✏️</button>
+                            <button className="ml-2 text-sm" onClick={() => clearEnvVar(v.name)}>Clear</button>
+                          </>
                         )}
                       </>
                     )}
