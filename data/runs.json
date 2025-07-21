@@ -1,18 +1,52 @@
 [
   {
     "model": "default_agent",
-    "startDate": "2025-07-19T09:30:00Z",
-    "firstTradeDate": "2025-07-21T13:30:00Z",
-    "endDate": "2025-07-19T16:00:00Z",
-    "spyGain": -200,
-    "portfolioGain": -150
+    "runId": "default_agent_2025-07-18",
+    "startDate": "2025-07-18T09:30:00Z",
+    "firstTradeDate": "2025-07-18T14:30:00Z",
+    "endDate": "2025-07-18T16:00:00Z",
+    "spyGain": -250,
+    "portfolioGain": -100,
+    "equityHistory": [100000, 99900, 99850, 100050, 100100, 99950, 100200, 100150]
   },
   {
     "model": "default_agent",
+    "runId": "default_agent_2025-07-19",
+    "startDate": "2025-07-19T09:30:00Z",
+    "firstTradeDate": "2025-07-19T14:00:00Z",
+    "endDate": "2025-07-19T16:00:00Z",
+    "spyGain": -200,
+    "portfolioGain": -150,
+    "equityHistory": [100150, 100200, 100050, 100100, 100000, 99850, 99900, 99850]
+  },
+  {
+    "model": "default_agent",
+    "runId": "default_agent_2025-07-20",
     "startDate": "2025-07-20T09:30:00Z",
-    "firstTradeDate": "2025-07-21T13:30:00Z",
+    "firstTradeDate": "2025-07-20T13:30:00Z",
     "endDate": "2025-07-20T16:00:00Z",
     "spyGain": 300,
-    "portfolioGain": 450
+    "portfolioGain": 450,
+    "equityHistory": [99850, 100000, 100300, 100600, 100750, 100700, 100900, 101300]
+  },
+  {
+    "model": "default_agent",
+    "runId": "default_agent_2025-07-21",
+    "startDate": "2025-07-21T09:30:00Z",
+    "firstTradeDate": "2025-07-21T13:30:00Z",
+    "endDate": "2025-07-21T16:00:00Z",
+    "spyGain": 100,
+    "portfolioGain": 80,
+    "equityHistory": [101300, 101200, 101250, 101400, 101350, 101300, 101500, 101450]
+  },
+  {
+    "model": "default_agent",
+    "runId": "default_agent_2025-07-22",
+    "startDate": "2025-07-22T09:30:00Z",
+    "firstTradeDate": "2025-07-22T14:00:00Z",
+    "endDate": "2025-07-22T16:00:00Z",
+    "spyGain": 50,
+    "portfolioGain": -20,
+    "equityHistory": [101450, 101400, 101350, 101200, 101000, 101050, 101100, 101030]
   }
 ]
