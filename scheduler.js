@@ -2,6 +2,8 @@
 const cron = require('node-cron');
 const { spawn } = require('child_process');
 const path = require('path');
+const alpacaService = require('./src/alpacaService');
+const { appendRun } = require('./lib/runLogger');
 
 const tradingTimes = [
     '30 8 * * 1-5',  // 8:30 AM on weekdays
@@ -19,12 +21,36 @@ function startTradingWindow() {
     =================================================
     `);
 
+    const startTime = new Date();
+    const modelName = process.env.MODEL_NAME || 'default_agent';
+    const runId = `${modelName}_${startTime.toISOString()}`;
+
     const agentCmd = process.env.AGENT_CMD || `node ${path.join(__dirname, 'trading_agent', 'agent.js')}`;
     const [cmd, ...args] = agentCmd.split(' ');
     const mcpUrl = process.env.MCP_SERVER_URL || `http://localhost:${process.env.MCP_PORT || 4000}/rpc`;
     const agent = spawn(cmd, args, {
         stdio: 'inherit',
-        env: { ...process.env, MCP_SERVER_URL: mcpUrl },
+        env: { ...process.env, MCP_SERVER_URL: mcpUrl, RUN_ID: runId },
+    });
+
+    agent.on('close', async () => {
+        const end = new Date();
+        try {
+            const comparison = await alpacaService.compareWithSP500(
+                startTime.toISOString().split('T')[0],
+                end.toISOString().split('T')[0]
+            );
+            appendRun({
+                model: modelName,
+                runId,
+                startDate: startTime.toISOString(),
+                endDate: end.toISOString(),
+                spyGain: comparison.spyGain,
+                portfolioGain: comparison.accountGain,
+            });
+        } catch (err) {
+            console.error('Failed to record run results:', err);
+        }
     });
 
     let countdown = tradingWindowMinutes * 60;
