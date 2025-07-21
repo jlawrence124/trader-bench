@@ -1,10 +1,13 @@
+const fs = require('fs');
+const path = require('path');
+const MCPClient = require('../lib/shared/mcpClient');
+const createAgentLogger = require('./lib/logger');
+
 require('dotenv').config({
     path: path.join(__dirname, '..', '.env'),
     override: true,
     quiet: true,
 });
-const MCPClient = require('../lib/shared/mcpClient');
-const createAgentLogger = require('./lib/logger');
 
 // --- Run Setup ---
 const modelName = process.env.MODEL_NAME || 'default_agent';
@@ -12,8 +15,6 @@ const startDate = new Date().toISOString().split('T')[0];
 const runId = process.env.RUN_ID || `${modelName}_${startDate}`;
 const logger = createAgentLogger(runId);
 
-const fs = require('fs');
-const path = require('path');
 const logDir = path.join(__dirname, 'logs', runId);
 const tradesFile = path.join(logDir, 'trades.json');
 const modelOutputFile = path.join(logDir, 'model_output.log');
