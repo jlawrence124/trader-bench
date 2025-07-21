@@ -134,8 +134,11 @@ function App() {
   const testAlpaca = () => {
     setConnectionStatus('Testing...');
     fetch('/api/test-alpaca')
-      .then(res => res.json())
-      .then(() => setConnectionStatus('Connection successful'))
+      .then(async res => {
+        const data = await res.json();
+        if (!res.ok) throw data;
+        setConnectionStatus('Connection successful');
+      })
       .catch(err => {
         const msg = err && err.error ? err.error : err.message || 'Error';
         setConnectionStatus(`Connection failed: ${msg}`);

@@ -3,6 +3,7 @@ const path = require('path');
 const fs = require('fs');
 const { spawn } = require('child_process');
 const alpaca = require('./src/alpacaService');
+const logger = require('./lib/logger');
 require('dotenv/config');
 
 // provide defaults so missing MCP vars don't block the UI
@@ -229,14 +230,17 @@ app.get('/api/positions', async (req, res) => {
 });
 
 app.get('/api/test-alpaca', async (req, res) => {
+  logger.info('Testing Alpaca connection');
   try {
     await alpaca.getAccountInfo();
+    logger.info('Alpaca connection successful');
     res.json({ ok: true });
   } catch (err) {
+    logger.error('Alpaca connection failed', { error: err.message });
     res.status(500).json({ error: err.message });
   }
 });
 
 app.listen(PORT, () => {
-  console.log(`Web server running on http://localhost:${PORT}`);
+  logger.info(`Web server running on http://localhost:${PORT}`);
 });
