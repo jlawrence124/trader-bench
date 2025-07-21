@@ -186,6 +186,7 @@ Additional variables:
 - `MCP_SERVER_URL` defaults to `http://localhost:${MCP_PORT}/rpc` and normally doesn't need to be changed.
 - `AGENT_CMD` is the CLI command used to launch your agent (e.g. `gemini`, `codex`, `claude`, or `opencode`).
 - `MODEL_NAME` is inferred from `AGENT_CMD` when you save it and tags each run.
+- `AGENT_PROMPT_PATH` overrides the default startup prompt shown to your model (defaults to `trading_agent/prompt.txt`).
 
 These variables can be inspected from the dashboard's **Debug** tab, which hides secret values unless you choose to reveal them. When the UI first loads it will prompt for any missing variables and you can continue anyway if you just want to explore.
 

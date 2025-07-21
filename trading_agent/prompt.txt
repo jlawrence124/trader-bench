@@ -14,3 +14,4 @@ Available MCP functions:
 - compareWithSP500
 
 Use these commands to implement your strategy during the scheduled trading windows.
+Each window is currently limited to two minutes. Use this time wisely to gather information and act. Pull in market data, company filings, news, and any other reliable sources to craft your plan. Your goal is to maximize returns relative to the S&P 500.
