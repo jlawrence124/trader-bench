@@ -3,6 +3,7 @@ const path = require('path');
 const fs = require('fs');
 const { spawn } = require('child_process');
 const alpaca = require('./src/alpacaService');
+const logger = require('./lib/logger');
 require('dotenv/config');
 
 // provide defaults so missing MCP vars don't block the UI
@@ -33,6 +34,9 @@ app.use(express.static(path.join(__dirname, 'frontend')));
 const logsDir = path.join(__dirname, 'logs');
 const agentLogsDir = path.join(__dirname, 'trading_agent', 'logs');
 let benchmarkProcess = null;
+let runStartTime = null;
+let serverLogFile = null;
+let agentLogFile = null;
 
 // ----- Utility Endpoints -----
 app.get('/api/env-check', (req, res) => {
@@ -127,6 +131,9 @@ app.post('/api/save-keys', (req, res) => {
 app.post('/api/start-benchmark', (req, res) => {
   if (benchmarkProcess) return res.json({ running: true });
   benchmarkProcess = spawn('node', ['startAll.js']);
+  runStartTime = new Date();
+  serverLogFile = path.join(logsDir, `trading_${runStartTime.toISOString().split('T')[0]}.log`);
+  agentLogFile = null;
   benchmarkProcess.on('close', () => { benchmarkProcess = null; });
   res.json({ running: true });
 });
@@ -169,31 +176,42 @@ app.get('/api/logs/:name(*)', (req, res) => {
 app.get('/api/run-log', (req, res) => {
   let output = '';
 
+  const filterLog = (text) => {
+    const lines = text.split('\n').filter(l => l.trim());
+    if (!runStartTime) return lines.slice(-100).join('\n');
+    const filtered = lines.filter(l => {
+      try {
+        const t = JSON.parse(l).timestamp;
+        return !t || new Date(t) >= runStartTime;
+      } catch {
+        return false;
+      }
+    });
+    return filtered.slice(-100).join('\n');
+  };
+
   // ----- server log -----
-  if (fs.existsSync(logsDir)) {
-    const files = fs.readdirSync(logsDir).filter(f => f.endsWith('.log')).sort();
-    if (files.length) {
-      const logPath = path.join(logsDir, files[files.length - 1]);
-      const content = tailFile(logPath);
-      const lines = content.split('\n').slice(-100).join('\n');
-      output += '--- server log ---\n' + lines + '\n';
-    }
+  if (serverLogFile && fs.existsSync(serverLogFile)) {
+    const content = tailFile(serverLogFile);
+    const lines = filterLog(content);
+    if (lines) output += '--- server log ---\n' + lines + '\n';
   }
 
   // ----- agent log -----
-  if (fs.existsSync(agentLogsDir)) {
+  if (!agentLogFile && fs.existsSync(agentLogsDir)) {
     const dirs = fs.readdirSync(agentLogsDir).map(d => {
       const full = path.join(agentLogsDir, d);
       return { dir: d, time: fs.statSync(full).mtimeMs };
     }).sort((a, b) => b.time - a.time);
     if (dirs.length) {
-      const agentLog = path.join(agentLogsDir, dirs[0].dir, 'agent.log');
-      if (fs.existsSync(agentLog)) {
-        const content = tailFile(agentLog);
-        const lines = content.split('\n').slice(-100).join('\n');
-        output += '\n--- agent log ---\n' + lines;
-      }
+      const p = path.join(agentLogsDir, dirs[0].dir, 'agent.log');
+      if (fs.existsSync(p)) agentLogFile = p;
     }
+  }
+  if (agentLogFile && fs.existsSync(agentLogFile)) {
+    const content = tailFile(agentLogFile);
+    const lines = filterLog(content);
+    if (lines) output += '\n--- agent log ---\n' + lines;
   }
 
   res.type('text/plain').send(output);
@@ -228,6 +246,18 @@ app.get('/api/positions', async (req, res) => {
   }
 });
 
+app.get('/api/test-alpaca', async (req, res) => {
+  logger.info('Testing Alpaca connection');
+  try {
+    await alpaca.getAccountInfo();
+    logger.info('Alpaca connection successful');
+    res.json({ ok: true });
+  } catch (err) {
+    logger.error('Alpaca connection failed', { error: err.message });
+    res.status(500).json({ error: err.message });
+  }
+});
+
 app.listen(PORT, () => {
-  console.log(`Web server running on http://localhost:${PORT}`);
+  logger.info(`Web server running on http://localhost:${PORT}`);
 });

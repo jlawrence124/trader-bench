@@ -29,6 +29,7 @@ function App() {
   const [missingVars, setMissingVars] = useState([]);
   const [missingInputs, setMissingInputs] = useState({});
   const logRef = useRef(null);
+  const [connectionStatus, setConnectionStatus] = useState('');
 
   const infoMap = {
     MCP_PORT: 'Port for the HTTP MCP server (e.g., 4000)',
@@ -109,6 +110,7 @@ function App() {
   };
 
   const startBenchmark = () => {
+    clearBenchmarkLog();
     fetch('/api/start-benchmark', { method: 'POST' })
       .then(() => {
         setRunActive(true);
@@ -128,6 +130,20 @@ function App() {
     fetch('/api/account')
       .then(res => res.json())
       .then(data => setAccount(data));
+  };
+
+  const testAlpaca = () => {
+    setConnectionStatus('Testing...');
+    fetch('/api/test-alpaca')
+      .then(async res => {
+        const data = await res.json();
+        if (!res.ok) throw data;
+        setConnectionStatus('Connection successful');
+      })
+      .catch(err => {
+        const msg = err && err.error ? err.error : err.message || 'Error';
+        setConnectionStatus(`Connection failed: ${msg}`);
+      });
   };
 
   useEffect(() => {
@@ -364,6 +380,10 @@ function App() {
       {activeTab === 'benchmark' && (
         <section className="p-4 space-y-4 flex-1 overflow-auto">
           <button className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-md" onClick={startBenchmark}>Start Benchmark</button>
+          <button className="ml-2 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md" onClick={testAlpaca}>Test Alpaca Connection</button>
+          {connectionStatus && (
+            <p className="text-sm">{connectionStatus}</p>
+          )}
           <div>
             <h3 className="font-bold mb-1">Running Log</h3>
             <button className="mb-1 px-3 py-1 bg-gray-200 dark:bg-gray-700 rounded" onClick={clearBenchmarkLog}>Clear</button>
