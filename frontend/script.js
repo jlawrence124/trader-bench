@@ -295,6 +295,7 @@ function App() {
     const startSpy = spyData[0] || 1;
     const spyEquity = spyData.map(v => startEquity * (v / startSpy));
 
+
     if (performanceChartInstance.current) performanceChartInstance.current.destroy();
     const ctx1 = performanceChartRef.current.getContext('2d');
     performanceChartInstance.current = new Chart(ctx1, {
@@ -329,21 +330,25 @@ function App() {
       },
     });
 
-    const diffData = equityData.map((val, idx) => val - spyEquity[idx]);
+    const rateLabels = Array.from({ length: len - 1 }, (_, i) => i + 1);
+    const rateData = [];
+    for (let i = 1; i < len; i++) {
+      const eqRate = (equityData[i] - equityData[i - 1]) / equityData[i - 1];
+      const spyRate = (spyEquity[i] - spyEquity[i - 1]) / spyEquity[i - 1];
+      rateData.push((eqRate - spyRate) * 100);
+    }
 
     if (diffChartInstance.current) diffChartInstance.current.destroy();
     const ctx2 = diffChartRef.current.getContext('2d');
     diffChartInstance.current = new Chart(ctx2, {
-      type: 'line',
+      type: 'bar',
       data: {
-        labels,
+        labels: rateLabels,
         datasets: [
           {
-            label: 'Difference',
-            data: diffData,
-            borderColor: '#10b981',
-            backgroundColor: 'rgba(16,185,129,0.3)',
-            tension: 0.1,
+            label: 'Daily Outperformance %',
+            data: rateData,
+            backgroundColor: rateData.map(v => v >= 0 ? '#10b981' : '#ef4444'),
           },
         ],
       },
@@ -353,7 +358,7 @@ function App() {
         scales: { x: { display: false } },
         plugins: {
           legend: { display: false },
-          title: { display: true, text: 'Difference' },
+          title: { display: true, text: 'Rate of Change vs SPY (%)' },
         },
       },
     });
@@ -562,6 +567,14 @@ function App() {
 
   const totalGainLoss = positions.reduce((a,p)=>a+parseFloat(p.unrealized_pl || 0),0);
   const dayChange = account && account.last_equity ? parseFloat(account.equity) - parseFloat(account.last_equity) : 0;
+  const expanded = expandedRun !== null ? runs[expandedRun] : null;
+  let chartTitle = '';
+  if (expanded) {
+    const start = new Date(expanded.startDate || expanded.date);
+    const end = new Date(expanded.endDate || expanded.date);
+    const days = Math.max(1, Math.round((end - start) / 86400000) + 1);
+    chartTitle = `${expanded.model} - ${start.toLocaleDateString()} to ${end.toLocaleDateString()} (${days} day${days > 1 ? 's' : ''})`;
+  }
 
   return (
     <div className="flex-1 flex flex-col bg-white dark:bg-gray-900">
@@ -585,6 +598,7 @@ function App() {
           {expandedRun !== null && (
             <div className="relative mb-4 grid grid-cols-1 md:grid-cols-2 gap-4">
               <button className="absolute top-0 right-0 p-1" onClick={() => setExpandedRun(null)}>✕</button>
+              <h3 className="col-span-2 text-center font-bold mb-2">{chartTitle}</h3>
               <div style={{ height: '40vh' }}>
                 <canvas ref={performanceChartRef} className="w-full h-full"></canvas>
               </div>
@@ -609,8 +623,9 @@ function App() {
             <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
               {runs.map((r,i) => {
                 const diff = r.spyGain !== 0 ? ((r.portfolioGain - r.spyGain) / Math.abs(r.spyGain)) * 100 : 0;
+                const rowSelected = expandedRun === i;
                 return (
-                  <tr key={i} className="hover:bg-indigo-50 dark:hover:bg-indigo-900 cursor-pointer" onClick={() => setExpandedRun(expandedRun === i ? null : i)}>
+                  <tr key={i} className={`hover:bg-indigo-50 dark:hover:bg-indigo-900 cursor-pointer ${rowSelected ? 'bg-indigo-100 dark:bg-indigo-800' : ''}`} onClick={() => setExpandedRun(rowSelected ? null : i)}>
                     <td className="p-2">{r.model}</td>
                     <td className="p-2">{formatDateTime(r.startDate || r.date)}</td>
                     <td className="p-2">{formatDateTime(r.firstTradeDate)}</td>
