@@ -1,4 +1,6 @@
 require('dotenv/config');
+const fs = require('fs');
+const path = require('path');
 const MCPClient = require('../lib/shared/mcpClient');
 const createAgentLogger = require('./lib/logger');
 
@@ -8,6 +10,18 @@ const startDate = new Date().toISOString().split('T')[0];
 const runId = `${modelName}_${startDate}`;
 const logger = createAgentLogger(runId);
 // -----------------
+
+// Load the initial prompt to prime the model
+const promptPath = process.env.AGENT_PROMPT_PATH || path.join(__dirname, 'prompt.txt');
+let initialPrompt = '';
+try {
+    initialPrompt = fs.readFileSync(promptPath, 'utf8');
+    logger.info(`Initial prompt loaded from ${promptPath}`);
+    // Send the prompt to the underlying model/stdout before any trading logic
+    console.log(initialPrompt);
+} catch (err) {
+    logger.warn(`Failed to load prompt file at ${promptPath}: ${err.message}`);
+}
 
 const mcpClient = new MCPClient(logger);
 
