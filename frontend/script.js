@@ -30,6 +30,12 @@ function App() {
   const [missingInputs, setMissingInputs] = useState({});
   const logRef = useRef(null);
   const [connectionStatus, setConnectionStatus] = useState('');
+  const [initialEquity, setInitialEquity] = useState(null);
+  const [equityHistory, setEquityHistory] = useState([]);
+  const equityChartRef = useRef(null);
+  const positionsChartRef = useRef(null);
+  const equityChartInstance = useRef(null);
+  const positionsChartInstance = useRef(null);
 
   const infoMap = {
     MCP_PORT: 'Port for the HTTP MCP server (e.g., 4000)',
@@ -129,7 +135,14 @@ function App() {
   const loadAccount = () => {
     fetch('/api/account')
       .then(res => res.json())
-      .then(data => setAccount(data));
+      .then(data => {
+        setAccount(data);
+        const eq = parseFloat(data.equity);
+        if (!isNaN(eq)) {
+          setEquityHistory(h => [...h, { t: new Date(), v: eq }]);
+          setInitialEquity(e => (e === null ? eq : e));
+        }
+      });
   };
 
   const testAlpaca = () => {
@@ -152,10 +165,60 @@ function App() {
     }
   }, [benchmarkLog]);
 
+  useEffect(() => {
+    if (!equityChartRef.current) return;
+    const ctx = equityChartRef.current.getContext('2d');
+    const labels = equityHistory.map(p => p.t.toLocaleTimeString());
+    const data = equityHistory.map(p => p.v);
+    if (equityChartInstance.current) equityChartInstance.current.destroy();
+    equityChartInstance.current = new Chart(ctx, {
+      type: 'line',
+      data: {
+        labels,
+        datasets: [{
+          label: 'Equity',
+          data,
+          borderColor: '#3b82f6',
+          backgroundColor: 'rgba(59,130,246,0.3)',
+          tension: 0.1
+        }]
+      },
+      options: { scales: { x: { display: false } }, plugins: { legend: { display: false } } }
+    });
+    return () => {
+      if (equityChartInstance.current) equityChartInstance.current.destroy();
+    };
+  }, [equityHistory]);
+
+  useEffect(() => {
+    if (!positionsChartRef.current) return;
+    const ctx = positionsChartRef.current.getContext('2d');
+    const labels = positions.map(p => p.symbol);
+    const data = positions.map(p => parseFloat(p.unrealized_pl || 0));
+    if (positionsChartInstance.current) positionsChartInstance.current.destroy();
+    positionsChartInstance.current = new Chart(ctx, {
+      type: 'bar',
+      data: {
+        labels,
+        datasets: [{
+          label: 'PNL',
+          data,
+          backgroundColor: '#34d399'
+        }]
+      },
+      options: { plugins: { legend: { display: false } } }
+    });
+    return () => {
+      if (positionsChartInstance.current) positionsChartInstance.current.destroy();
+    };
+  }, [positions]);
+
   const loadPositions = () => {
     fetch('/api/positions')
       .then(res => res.json())
-      .then(data => setPositions(data));
+      .then(data => {
+        setPositions(data);
+      });
   };
 
   const loadLog = (name) => {
@@ -417,12 +480,19 @@ function App() {
               <div>
                 <h3 className="font-bold mb-1">Account</h3>
                 {account && (
-                  <p>Equity: ${parseFloat(account.equity).toFixed(2)}</p>
+                  <>
+                    <p>Equity: ${parseFloat(account.equity).toFixed(2)}</p>
+                    {initialEquity !== null && (
+                      <p className="text-sm text-gray-600 dark:text-gray-400">PNL since load: ${(parseFloat(account.equity) - initialEquity).toFixed(2)}</p>
+                    )}
+                  </>
                 )}
+                <canvas ref={equityChartRef} className="w-full max-w-xl h-40 mt-2"></canvas>
               </div>
               <div>
                 <h3 className="font-bold mb-1">Positions</h3>
                 <p>Total PNL: ${positions.reduce((a,p)=>a+parseFloat(p.unrealized_pl||0),0).toFixed(2)}</p>
+                <canvas ref={positionsChartRef} className="w-full max-w-xl h-40 mb-2"></canvas>
                 <table className="min-w-full text-sm divide-y divide-gray-300 dark:divide-gray-700">
                   <thead>
                     <tr className="bg-gray-100 dark:bg-gray-800">
