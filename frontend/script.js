@@ -38,7 +38,9 @@ function App() {
   const logRef = useRef(null); // benchmark running log
   const logViewRef = useRef(null); // selected log viewer
   const performanceChartRef = useRef(null);
+  const diffChartRef = useRef(null);
   const performanceChartInstance = useRef(null);
+  const diffChartInstance = useRef(null);
   const [connectionStatus, setConnectionStatus] = useState('');
   const [initialEquity, setInitialEquity] = useState(null);
   const [equityHistory, setEquityHistory] = useState([]);
@@ -282,29 +284,79 @@ function App() {
   }, [positions]);
 
   useEffect(() => {
-    if (expandedRun === null || !performanceChartRef.current) return;
+    if (expandedRun === null || !performanceChartRef.current || !diffChartRef.current) return;
     const run = runs[expandedRun];
-    if (!run || !run.equityHistory || !run.equityHistory.length) return;
-    const labels = run.equityHistory.map((_, i) => i + 1);
-    const data = run.equityHistory;
+    if (!run || !run.equityHistory || !run.equityHistory.length || !run.spyHistory) return;
+    const len = Math.min(run.equityHistory.length, run.spyHistory.length);
+    const labels = Array.from({ length: len }, (_, i) => i + 1);
+    const equityData = run.equityHistory.slice(0, len);
+    const spyData = run.spyHistory.slice(0, len);
+
     if (performanceChartInstance.current) performanceChartInstance.current.destroy();
-    const ctx = performanceChartRef.current.getContext('2d');
-    performanceChartInstance.current = new Chart(ctx, {
+    const ctx1 = performanceChartRef.current.getContext('2d');
+    performanceChartInstance.current = new Chart(ctx1, {
       type: 'line',
       data: {
         labels,
-        datasets: [{
-          label: 'Equity',
-          data,
-          borderColor: '#3b82f6',
-          backgroundColor: 'rgba(59,130,246,0.3)',
-          tension: 0.1
-        }]
+        datasets: [
+          {
+            label: 'Portfolio',
+            data: equityData,
+            borderColor: '#3b82f6',
+            backgroundColor: 'rgba(59,130,246,0.3)',
+            tension: 0.1,
+          },
+          {
+            label: 'S&P 500',
+            data: spyData,
+            borderColor: '#f97316',
+            backgroundColor: 'rgba(249,115,22,0.3)',
+            tension: 0.1,
+          },
+        ],
       },
-      options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } } }
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        scales: { x: { display: false } },
+        plugins: { legend: { display: true, position: 'top' } },
+      },
     });
+
+    const startEquity = equityData[0];
+    const startSpy = spyData[0] || 1;
+    const diffData = equityData.map((val, idx) => {
+      const spyEq = startEquity * (spyData[idx] / startSpy);
+      return val - spyEq;
+    });
+
+    if (diffChartInstance.current) diffChartInstance.current.destroy();
+    const ctx2 = diffChartRef.current.getContext('2d');
+    diffChartInstance.current = new Chart(ctx2, {
+      type: 'line',
+      data: {
+        labels,
+        datasets: [
+          {
+            label: 'Difference',
+            data: diffData,
+            borderColor: '#10b981',
+            backgroundColor: 'rgba(16,185,129,0.3)',
+            tension: 0.1,
+          },
+        ],
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        scales: { x: { display: false } },
+        plugins: { legend: { display: false } },
+      },
+    });
+
     return () => {
       if (performanceChartInstance.current) performanceChartInstance.current.destroy();
+      if (diffChartInstance.current) diffChartInstance.current.destroy();
     };
   }, [expandedRun, runs]);
 
@@ -527,9 +579,14 @@ function App() {
       {activeTab === 'runs' && (
         <section className="p-4 flex-1 overflow-auto">
           {expandedRun !== null && (
-            <div className="relative mb-4 max-w-xl mx-auto" style={{ height: '40vh' }}>
+            <div className="relative mb-4 grid grid-cols-1 md:grid-cols-2 gap-4">
               <button className="absolute top-0 right-0 p-1" onClick={() => setExpandedRun(null)}>✕</button>
-              <canvas ref={performanceChartRef} className="w-full h-full"></canvas>
+              <div style={{ height: '40vh' }}>
+                <canvas ref={performanceChartRef} className="w-full h-full"></canvas>
+              </div>
+              <div style={{ height: '40vh' }}>
+                <canvas ref={diffChartRef} className="w-full h-full"></canvas>
+              </div>
             </div>
           )}
           <div className="overflow-x-auto">

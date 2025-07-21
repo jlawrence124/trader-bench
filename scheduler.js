@@ -45,6 +45,16 @@ function startTradingWindow() {
                 end.toISOString(),
                 '1Min'
             );
+            const spyBars = await alpacaService.getHistoricalBars(
+                'SPY',
+                '1Min',
+                startTime.toISOString(),
+                end.toISOString()
+            );
+            const bars = spyBars.bars || spyBars;
+            const spyHistory = Array.isArray(bars)
+                ? bars.map(b => parseFloat(b.c ?? b.close ?? b.o))
+                : [];
             appendRun({
                 model: modelName,
                 runId,
@@ -52,7 +62,8 @@ function startTradingWindow() {
                 endDate: end.toISOString(),
                 spyGain: comparison.spyGain,
                 portfolioGain: comparison.accountGain,
-                equityHistory: history.equity || history
+                equityHistory: history.equity || history,
+                spyHistory,
             });
         } catch (err) {
             console.error('Failed to record run results:', err);
