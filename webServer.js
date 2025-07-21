@@ -228,6 +228,15 @@ app.get('/api/positions', async (req, res) => {
   }
 });
 
+app.get('/api/test-alpaca', async (req, res) => {
+  try {
+    await alpaca.getAccountInfo();
+    res.json({ ok: true });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 app.listen(PORT, () => {
   console.log(`Web server running on http://localhost:${PORT}`);
 });
