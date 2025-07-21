@@ -48,6 +48,20 @@ describe('alpacaService', () => {
     await expect(alpacaService.submitOrder({ symbol: 'AAPL' })).rejects.toThrow(/Missing required fields/);
   });
 
+  test('getOrders fetches list', async () => {
+    mockTradingGet.mockResolvedValueOnce({ data: [{ id: '1', symbol: 'AAPL' }] });
+    const result = await alpacaService.getOrders(10, 'all');
+    expect(mockTradingGet).toHaveBeenCalledWith('/v2/orders', { params: { limit: 10, status: 'all', direction: 'desc' } });
+    expect(result).toEqual([{ id: '1', symbol: 'AAPL' }]);
+  });
+
+  test('getPortfolioHistory returns equity data', async () => {
+    mockTradingGet.mockResolvedValueOnce({ data: { equity: [1, 2, 3] } });
+    const result = await alpacaService.getPortfolioHistory('2023-01-01T00:00:00Z', '2023-01-01T01:00:00Z', '1Min');
+    expect(mockTradingGet).toHaveBeenCalledWith('/v2/account/portfolio/history', { params: { start: '2023-01-01T00:00:00Z', end: '2023-01-01T01:00:00Z', timeframe: '1Min' } });
+    expect(result).toEqual({ equity: [1, 2, 3] });
+  });
+
   test('compareWithSP500 calculates gains', async () => {
     mockTradingGet.mockResolvedValueOnce({ data: { equity: [100000, 101000] } });
     mockMarketGet.mockResolvedValueOnce({ data: { bars: [{ c: 400 }, { c: 404 }] } });
@@ -61,5 +75,19 @@ describe('alpacaService', () => {
       spyGain: 1000,
       relativeGain: 0
     });
+  });
+
+  test('cancelAllOrders deletes all orders', async () => {
+    mockTradingDelete.mockResolvedValue({ data: { status: 'canceled' } });
+    const result = await alpacaService.cancelAllOrders();
+    expect(mockTradingDelete).toHaveBeenCalledWith('/v2/orders');
+    expect(result).toEqual({ status: 'canceled' });
+  });
+
+  test('closeAllPositions liquidates portfolio', async () => {
+    mockTradingDelete.mockResolvedValue({ data: { status: 'closed' } });
+    const result = await alpacaService.closeAllPositions();
+    expect(mockTradingDelete).toHaveBeenCalledWith('/v2/positions');
+    expect(result).toEqual({ status: 'closed' });
   });
 });

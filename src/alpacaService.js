@@ -112,6 +112,42 @@ async function cancelOrder(orderId) {
 }
 
 /**
+ * Cancel all open orders
+ * @returns {Promise<object>} - Result of cancellation
+ */
+async function cancelAllOrders() {
+    try {
+        const response = await tradingApi.delete('/v2/orders');
+        return response.data;
+    } catch (error) {
+        const errorMessage = error.response
+            ? `API Error: ${error.response.status} - ${JSON.stringify(error.response.data)}`
+            : `Network Error: ${error.message}`;
+
+        console.error('Error canceling all orders:', errorMessage);
+        throw new Error(`Failed to cancel orders: ${errorMessage}`);
+    }
+}
+
+/**
+ * Close all open positions
+ * @returns {Promise<object>} - Result of liquidation
+ */
+async function closeAllPositions() {
+    try {
+        const response = await tradingApi.delete('/v2/positions');
+        return response.data;
+    } catch (error) {
+        const errorMessage = error.response
+            ? `API Error: ${error.response.status} - ${JSON.stringify(error.response.data)}`
+            : `Network Error: ${error.message}`;
+
+        console.error('Error closing all positions:', errorMessage);
+        throw new Error(`Failed to close positions: ${errorMessage}`);
+    }
+}
+
+/**
  * Get current positions
  * @returns {Promise<Array>} - Array of current positions
  */
@@ -130,6 +166,32 @@ async function getPositions() {
 }
 
 /**
+ * Get recent orders
+ * @param {number} limit - Maximum number of orders to fetch
+ * @param {string} status - Order status filter
+ * @returns {Promise<Array>} - Array of orders
+ */
+async function getOrders(limit = 50, status = 'all') {
+    try {
+        const response = await tradingApi.get('/v2/orders', {
+            params: {
+                limit,
+                status,
+                direction: 'desc',
+            },
+        });
+        return response.data;
+    } catch (error) {
+        const errorMessage = error.response
+            ? `API Error: ${error.response.status} - ${JSON.stringify(error.response.data)}`
+            : `Network Error: ${error.message}`;
+
+        console.error('Error fetching orders:', errorMessage);
+        throw new Error(`Failed to fetch orders: ${errorMessage}`);
+    }
+}
+
+/**
  * Get account information
  * @returns {Promise<object>} - Account details
  */
@@ -144,6 +206,28 @@ async function getAccountInfo() {
         
         console.error('Error fetching account info:', errorMessage);
         throw new Error(`Failed to fetch account info: ${errorMessage}`);
+    }
+}
+
+/**
+ * Get portfolio equity history
+ * @param {string} start - Start time (ISO 8601)
+ * @param {string} end - End time (ISO 8601)
+ * @param {string} [timeframe='1Min'] - Bar timeframe
+ * @returns {Promise<object>} Portfolio history data
+ */
+async function getPortfolioHistory(start, end, timeframe = '1Min') {
+    try {
+        const response = await tradingApi.get('/v2/account/portfolio/history', {
+            params: { start, end, timeframe },
+        });
+        return response.data;
+    } catch (error) {
+        const errorMessage = error.response
+            ? `API Error: ${error.response.status} - ${JSON.stringify(error.response.data)}`
+            : `Network Error: ${error.message}`;
+        console.error('Error fetching portfolio history:', errorMessage);
+        throw new Error(`Failed to fetch portfolio history: ${errorMessage}`);
     }
 }
 
@@ -236,8 +320,12 @@ module.exports = {
     getMarketData,
     submitOrder,
     cancelOrder,
+    cancelAllOrders,
+    closeAllPositions,
     getPositions,
+    getOrders,
     getAccountInfo,
+    getPortfolioHistory,
     getHistoricalBars,
     getPerformanceMetrics,
     compareWithSP500,

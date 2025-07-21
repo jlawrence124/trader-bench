@@ -99,7 +99,10 @@ in your environment or `.env` file, you will be prompted to enter them. The
 interface uses **React** and **Tailwind CSS** for a modern look with automatic
 dark mode based on your system preferences. The runs table now shows start,
 first trading, and end datetimes with S&P and portfolio gains (in dollars) plus
-a percentage difference column. A logs tab lets you read server or agent logs,
+a percentage difference column. Clicking a row reveals side-by-side charts of
+the portfolio versus the S&P 500 (scaled to your starting equity) and the running difference.
+A logs tab lets you
+read server or agent logs,
 a Benchmark tab lets you start the processes, test your Alpaca connection (or call `/api/test-alpaca` directly),
 and monitor the combined running log (server and agent output). A separate **Positions** tab shows account
 equity, total P&L, and lets you drill into each holding for entry times and
@@ -108,7 +111,7 @@ browser view (the log files continue to grow on disk). A Debug tab lists
 important environment variables with secret values hidden by default, and each
 one has an edit or **Clear** control. If no run is active you can edit these
 values directly from the UI and optionally override the restriction with a
-checkbox. A placeholder tab for the future leaderboard is also included.
+checkbox. Quick controls let you buy or sell a single share of OKLO, reset the paper account, or fetch the latest quote for any symbol. Recent orders appear on a dedicated tab, and an "Overview" page summarizes equity, cash, buying power, total gain/loss, and day change with green/red styling. A placeholder tab for the future leaderboard is also included.
 
 ### GitHub Codespaces
 

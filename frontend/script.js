@@ -19,6 +19,13 @@ function App() {
   const [benchmarkLog, setBenchmarkLog] = useState('');
   const [account, setAccount] = useState(null);
   const [positions, setPositions] = useState([]);
+  const [orders, setOrders] = useState([]);
+  const [buyStatus, setBuyStatus] = useState('');
+  const [sellStatus, setSellStatus] = useState('');
+  const [resetStatus, setResetStatus] = useState('');
+  const [symbolInput, setSymbolInput] = useState('');
+  const [symbolQuote, setSymbolQuote] = useState(null);
+  const [quoteStatus, setQuoteStatus] = useState('');
   const [selectedPosition, setSelectedPosition] = useState(null);
   const [envVars, setEnvVars] = useState([]);
   const [showSecret, setShowSecret] = useState({});
@@ -28,7 +35,12 @@ function App() {
   const [overrideEdit, setOverrideEdit] = useState(false);
   const [missingVars, setMissingVars] = useState([]);
   const [missingInputs, setMissingInputs] = useState({});
-  const logRef = useRef(null);
+  const logRef = useRef(null); // benchmark running log
+  const logViewRef = useRef(null); // selected log viewer
+  const performanceChartRef = useRef(null);
+  const diffChartRef = useRef(null);
+  const performanceChartInstance = useRef(null);
+  const diffChartInstance = useRef(null);
   const [connectionStatus, setConnectionStatus] = useState('');
   const [initialEquity, setInitialEquity] = useState(null);
   const [equityHistory, setEquityHistory] = useState([]);
@@ -36,6 +48,7 @@ function App() {
   const positionsChartRef = useRef(null);
   const equityChartInstance = useRef(null);
   const positionsChartInstance = useRef(null);
+  const [expandedRun, setExpandedRun] = useState(null);
 
   const infoMap = {
     MCP_PORT: 'Port for the HTTP MCP server (e.g., 4000)',
@@ -80,14 +93,12 @@ function App() {
       }, 5000);
       return () => clearInterval(id);
     }
-    if (activeTab === 'positions') {
+    if (activeTab === 'positions' || activeTab === 'overview') {
       loadAccount();
       loadPositions();
-      const id = setInterval(() => {
-        loadAccount();
-        loadPositions();
-      }, 5000);
-      return () => clearInterval(id);
+    }
+    if (activeTab === 'orders') {
+      loadOrders();
     }
     if (activeTab === 'debug') {
       loadRunStatus();
@@ -159,11 +170,61 @@ function App() {
       });
   };
 
+  const buyOklo = () => {
+    setBuyStatus('Placing order...');
+    fetch('/api/buy-oklo', { method: 'POST' })
+      .then(async res => {
+        const data = await res.json();
+        if (!res.ok) throw data;
+        setBuyStatus('Order submitted');
+      })
+      .catch(err => {
+        const msg = err && err.error ? err.error : err.message || 'Error';
+        setBuyStatus(`Order failed: ${msg}`);
+      });
+  };
+
+  const sellOklo = () => {
+    setSellStatus('Placing order...');
+    fetch('/api/sell-oklo', { method: 'POST' })
+      .then(async res => {
+        const data = await res.json();
+        if (!res.ok) throw data;
+        setSellStatus('Order submitted');
+      })
+      .catch(err => {
+        const msg = err && err.error ? err.error : err.message || 'Error';
+        setSellStatus(`Order failed: ${msg}`);
+      });
+  };
+
+  const resetPaperAccount = () => {
+    setResetStatus('Resetting...');
+    fetch('/api/reset-paper', { method: 'POST' })
+      .then(async res => {
+        const data = await res.json();
+        if (!res.ok) throw data;
+        setResetStatus('Account cleared');
+        loadAccount();
+        loadPositions();
+      })
+      .catch(err => {
+        const msg = err && err.error ? err.error : err.message || 'Error';
+        setResetStatus(`Reset failed: ${msg}`);
+      });
+  };
+
   useEffect(() => {
     if (logRef.current) {
       logRef.current.scrollTop = logRef.current.scrollHeight;
     }
   }, [benchmarkLog]);
+
+  useEffect(() => {
+    if (logViewRef.current) {
+      logViewRef.current.scrollTop = logViewRef.current.scrollHeight;
+    }
+  }, [logContent]);
 
   useEffect(() => {
     if (!equityChartRef.current) return;
@@ -183,7 +244,12 @@ function App() {
           tension: 0.1
         }]
       },
-      options: { scales: { x: { display: false } }, plugins: { legend: { display: false } } }
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        scales: { x: { display: false } },
+        plugins: { legend: { display: false } }
+      }
     });
     return () => {
       if (equityChartInstance.current) equityChartInstance.current.destroy();
@@ -206,18 +272,138 @@ function App() {
           backgroundColor: '#34d399'
         }]
       },
-      options: { plugins: { legend: { display: false } } }
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: { legend: { display: false } }
+      }
     });
     return () => {
       if (positionsChartInstance.current) positionsChartInstance.current.destroy();
     };
   }, [positions]);
 
+  useEffect(() => {
+    if (expandedRun === null || !performanceChartRef.current || !diffChartRef.current) return;
+    const run = runs[expandedRun];
+    if (!run || !run.equityHistory || !run.equityHistory.length || !run.spyHistory) return;
+    const len = Math.min(run.equityHistory.length, run.spyHistory.length);
+    const labels = Array.from({ length: len }, (_, i) => i + 1);
+    const equityData = run.equityHistory.slice(0, len);
+    const spyData = run.spyHistory.slice(0, len);
+    const startEquity = equityData[0];
+    const startSpy = spyData[0] || 1;
+    const spyEquity = spyData.map(v => startEquity * (v / startSpy));
+
+
+    if (performanceChartInstance.current) performanceChartInstance.current.destroy();
+    const ctx1 = performanceChartRef.current.getContext('2d');
+    performanceChartInstance.current = new Chart(ctx1, {
+      type: 'line',
+      data: {
+        labels,
+        datasets: [
+          {
+            label: 'Portfolio',
+            data: equityData,
+            borderColor: '#3b82f6',
+            backgroundColor: 'rgba(59,130,246,0.3)',
+            tension: 0.1,
+          },
+          {
+            label: 'S&P 500',
+            data: spyEquity,
+            borderColor: '#f97316',
+            backgroundColor: 'rgba(249,115,22,0.3)',
+            tension: 0.1,
+          },
+        ],
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        scales: { x: { display: false } },
+        plugins: {
+          legend: { display: true, position: 'top' },
+          title: { display: true, text: 'Portfolio vs S&P 500' },
+        },
+      },
+    });
+
+    const rateLabels = Array.from({ length: len - 1 }, (_, i) => i + 1);
+    const rateData = [];
+    for (let i = 1; i < len; i++) {
+      const eqRate = (equityData[i] - equityData[i - 1]) / equityData[i - 1];
+      const spyRate = (spyEquity[i] - spyEquity[i - 1]) / spyEquity[i - 1];
+      rateData.push((eqRate - spyRate) * 100);
+    }
+
+    if (diffChartInstance.current) diffChartInstance.current.destroy();
+    const ctx2 = diffChartRef.current.getContext('2d');
+    diffChartInstance.current = new Chart(ctx2, {
+      type: 'bar',
+      data: {
+        labels: rateLabels,
+        datasets: [
+          {
+            label: 'Daily Outperformance %',
+            data: rateData,
+            backgroundColor: rateData.map(v => v >= 0 ? '#10b981' : '#ef4444'),
+          },
+        ],
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        scales: { x: { display: false } },
+        plugins: {
+          legend: { display: false },
+          title: { display: true, text: 'Rate of Change vs SPY (%)' },
+        },
+      },
+    });
+
+    return () => {
+      if (performanceChartInstance.current) performanceChartInstance.current.destroy();
+      if (diffChartInstance.current) diffChartInstance.current.destroy();
+    };
+  }, [expandedRun, runs]);
+
   const loadPositions = () => {
     fetch('/api/positions')
       .then(res => res.json())
       .then(data => {
         setPositions(data);
+      });
+  };
+
+  const updateEquityChart = () => {
+    loadAccount();
+  };
+
+  const updatePositionsChart = () => {
+    loadPositions();
+  };
+
+  const loadOrders = () => {
+    fetch('/api/orders')
+      .then(res => res.json())
+      .then(data => setOrders(data));
+  };
+
+  const fetchPrice = () => {
+    if (!symbolInput) return;
+    setQuoteStatus('Fetching...');
+    fetch(`/api/market/${encodeURIComponent(symbolInput)}`)
+      .then(res => res.json())
+      .then(data => {
+        setQuoteStatus('');
+        setSymbolQuote(data);
+      })
+      .catch(err => {
+        const msg = err && err.error ? err.error : err.message || 'Error';
+        setQuoteStatus(`Error: ${msg}`);
+        setSymbolQuote(null);
       });
   };
 
@@ -379,6 +565,17 @@ function App() {
     );
   }
 
+  const totalGainLoss = positions.reduce((a,p)=>a+parseFloat(p.unrealized_pl || 0),0);
+  const dayChange = account && account.last_equity ? parseFloat(account.equity) - parseFloat(account.last_equity) : 0;
+  const expanded = expandedRun !== null ? runs[expandedRun] : null;
+  let chartTitle = '';
+  if (expanded) {
+    const start = new Date(expanded.startDate || expanded.date);
+    const end = new Date(expanded.endDate || expanded.date);
+    const days = Math.max(1, Math.round((end - start) / 86400000) + 1);
+    chartTitle = `${expanded.model} - ${start.toLocaleDateString()} to ${end.toLocaleDateString()} (${days} day${days > 1 ? 's' : ''})`;
+  }
+
   return (
     <div className="flex-1 flex flex-col bg-white dark:bg-gray-900">
       <header className="bg-gradient-to-r from-blue-500 to-indigo-600 text-white py-6 text-center shadow-lg">
@@ -387,15 +584,29 @@ function App() {
 
       <nav className="bg-gray-100 dark:bg-gray-800 shadow flex flex-wrap gap-2 sm:gap-4 px-4 py-2 justify-center sm:justify-start">
         <button className={`px-3 py-1 rounded ${activeTab==='runs'?'bg-blue-500 text-white':'bg-gray-200 dark:bg-gray-700 dark:text-gray-200'}`} onClick={() => setActiveTab('runs')}>Recent Runs</button>
+        <button className={`px-3 py-1 rounded ${activeTab==='overview'?'bg-blue-500 text-white':'bg-gray-200 dark:bg-gray-700 dark:text-gray-200'}`} onClick={() => setActiveTab('overview')}>Overview</button>
         <button className={`px-3 py-1 rounded ${activeTab==='logs'?'bg-blue-500 text-white':'bg-gray-200 dark:bg-gray-700 dark:text-gray-200'}`} onClick={() => setActiveTab('logs')}>Logs</button>
         <button className={`px-3 py-1 rounded ${activeTab==='benchmark'?'bg-blue-500 text-white':'bg-gray-200 dark:bg-gray-700 dark:text-gray-200'}`} onClick={() => setActiveTab('benchmark')}>Benchmark</button>
         <button className={`px-3 py-1 rounded ${activeTab==='positions'?'bg-blue-500 text-white':'bg-gray-200 dark:bg-gray-700 dark:text-gray-200'}`} onClick={() => setActiveTab('positions')}>Positions</button>
+        <button className={`px-3 py-1 rounded ${activeTab==='orders'?'bg-blue-500 text-white':'bg-gray-200 dark:bg-gray-700 dark:text-gray-200'}`} onClick={() => setActiveTab('orders')}>Orders</button>
         <button className={`px-3 py-1 rounded ${activeTab==='debug'?'bg-blue-500 text-white':'bg-gray-200 dark:bg-gray-700 dark:text-gray-200'}`} onClick={() => setActiveTab('debug')}>Debug</button>
         <button className="px-3 py-1 rounded bg-gray-300 dark:bg-gray-700 text-gray-500" disabled>Leaderboard (Coming Soon)</button>
       </nav>
 
       {activeTab === 'runs' && (
         <section className="p-4 flex-1 overflow-auto">
+          {expandedRun !== null && (
+            <div className="relative mb-4 grid grid-cols-1 md:grid-cols-2 gap-4">
+              <button className="absolute top-0 right-0 p-1" onClick={() => setExpandedRun(null)}>✕</button>
+              <h3 className="col-span-2 text-center font-bold mb-2">{chartTitle}</h3>
+              <div style={{ height: '40vh' }}>
+                <canvas ref={performanceChartRef} className="w-full h-full"></canvas>
+              </div>
+              <div style={{ height: '40vh' }}>
+                <canvas ref={diffChartRef} className="w-full h-full"></canvas>
+              </div>
+            </div>
+          )}
           <div className="overflow-x-auto">
             <table className="min-w-full text-sm divide-y divide-gray-300 dark:divide-gray-700">
             <thead>
@@ -412,8 +623,9 @@ function App() {
             <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
               {runs.map((r,i) => {
                 const diff = r.spyGain !== 0 ? ((r.portfolioGain - r.spyGain) / Math.abs(r.spyGain)) * 100 : 0;
+                const rowSelected = expandedRun === i;
                 return (
-                  <tr key={i} className="hover:bg-indigo-50 dark:hover:bg-indigo-900">
+                  <tr key={i} className={`hover:bg-indigo-50 dark:hover:bg-indigo-900 cursor-pointer ${rowSelected ? 'bg-indigo-100 dark:bg-indigo-800' : ''}`} onClick={() => setExpandedRun(rowSelected ? null : i)}>
                     <td className="p-2">{r.model}</td>
                     <td className="p-2">{formatDateTime(r.startDate || r.date)}</td>
                     <td className="p-2">{formatDateTime(r.firstTradeDate)}</td>
@@ -436,7 +648,39 @@ function App() {
             {logs.map(f => <option key={f} value={f}>{f}</option>)}
           </select>
           <button className="ml-2 px-3 py-1 bg-gray-200 dark:bg-gray-700 rounded" onClick={clearLogContent}>Clear</button>
-          <pre className="bg-gray-100 dark:bg-gray-800 p-4 rounded-md h-96 overflow-auto whitespace-pre-wrap">{logContent}</pre>
+          <pre ref={logViewRef} className="bg-gray-100 dark:bg-gray-800 p-4 rounded-md h-96 overflow-auto whitespace-pre-wrap">{logContent}</pre>
+          </section>
+      )}
+
+      {activeTab === 'overview' && (
+        <section className="p-4 space-y-4 flex-1 overflow-auto">
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 max-w-3xl mx-auto">
+            <div className="bg-white dark:bg-gray-800 rounded shadow p-4">
+              <h3 className="text-sm text-gray-500">Equity</h3>
+              <p className="text-xl font-bold">{account ? parseFloat(account.equity).toFixed(2) : '--'}</p>
+            </div>
+            <div className="bg-white dark:bg-gray-800 rounded shadow p-4">
+              <h3 className="text-sm text-gray-500">Cash</h3>
+              <p className="text-xl font-bold">{account ? parseFloat(account.cash).toFixed(2) : '--'}</p>
+            </div>
+            <div className="bg-white dark:bg-gray-800 rounded shadow p-4">
+              <h3 className="text-sm text-gray-500">Buying Power</h3>
+              <p className="text-xl font-bold">{account ? parseFloat(account.buying_power).toFixed(2) : '--'}</p>
+            </div>
+            <div className="bg-white dark:bg-gray-800 rounded shadow p-4">
+              <h3 className="text-sm text-gray-500">Positions</h3>
+              <p className="text-xl font-bold">{positions.length}</p>
+            </div>
+            <div className="bg-white dark:bg-gray-800 rounded shadow p-4">
+              <h3 className="text-sm text-gray-500">Gain/Loss</h3>
+              <p className={`text-xl font-bold ${totalGainLoss >= 0 ? 'text-green-600' : 'text-red-600'}`}>{totalGainLoss.toFixed(2)}</p>
+            </div>
+            <div className="bg-white dark:bg-gray-800 rounded shadow p-4">
+              <h3 className="text-sm text-gray-500">Day Change</h3>
+              <p className={`text-xl font-bold ${dayChange >= 0 ? 'text-green-600' : 'text-red-600'}`}>{dayChange.toFixed(2)}</p>
+            </div>
+          </div>
+          <button className="px-3 py-1 bg-blue-500 text-white rounded" onClick={() => {loadAccount(); loadPositions();}}>Refresh</button>
         </section>
       )}
 
@@ -487,12 +731,24 @@ function App() {
                     )}
                   </>
                 )}
-                <canvas ref={equityChartRef} className="w-full max-w-xl h-40 mt-2"></canvas>
+                {equityHistory.length >= 3 ? (
+                  <>
+                    <button className="mt-2 mb-1 px-3 py-1 bg-blue-500 text-white rounded" onClick={updateEquityChart}>Update Chart</button>
+                    <div className="mt-1 mx-auto w-1/3" style={{ height: '20vh' }}>
+                      <canvas ref={equityChartRef} className="w-full h-full"></canvas>
+                    </div>
+                  </>
+                ) : (
+                  <p className="text-sm mt-2">Equity chart will appear once more data is available.</p>
+                )}
               </div>
               <div>
                 <h3 className="font-bold mb-1">Positions</h3>
                 <p>Total PNL: ${positions.reduce((a,p)=>a+parseFloat(p.unrealized_pl||0),0).toFixed(2)}</p>
-                <canvas ref={positionsChartRef} className="w-full max-w-xl h-40 mb-2"></canvas>
+                <button className="mb-1 px-3 py-1 bg-blue-500 text-white rounded" onClick={updatePositionsChart}>Update Chart</button>
+                <div className="mb-2 mx-auto w-1/3" style={{ height: '20vh' }}>
+                  <canvas ref={positionsChartRef} className="w-full h-full"></canvas>
+                </div>
                 <table className="min-w-full text-sm divide-y divide-gray-300 dark:divide-gray-700">
                   <thead>
                     <tr className="bg-gray-100 dark:bg-gray-800">
@@ -517,12 +773,60 @@ function App() {
         </section>
       )}
 
+      {activeTab === 'orders' && (
+        <section className="p-4 space-y-2 flex-1 overflow-auto">
+          <button className="mb-2 px-3 py-1 bg-blue-500 text-white rounded" onClick={loadOrders}>Refresh</button>
+          <table className="min-w-full text-sm divide-y divide-gray-300 dark:divide-gray-700">
+            <thead>
+              <tr className="bg-gray-100 dark:bg-gray-800">
+                <th className="p-1 text-left">Symbol</th>
+                <th className="p-1 text-left">Qty</th>
+                <th className="p-1 text-left">Side</th>
+                <th className="p-1 text-left">Status</th>
+                <th className="p-1 text-left">Submitted</th>
+              </tr>
+            </thead>
+            <tbody>
+              {orders.map(o => (
+                <tr key={o.id} className="hover:bg-indigo-50 dark:hover:bg-indigo-900">
+                  <td className="p-1">{o.symbol}</td>
+                  <td className="p-1">{o.qty}</td>
+                  <td className="p-1">{o.side}</td>
+                  <td className="p-1">{o.status}</td>
+                  <td className="p-1">{formatDateTime(o.submitted_at)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </section>
+      )}
+
       {activeTab === 'debug' && (
         <section className="p-4 flex-1 overflow-auto space-y-2">
           <label className="inline-flex items-center">
             <input type="checkbox" className="mr-2" checked={overrideEdit} onChange={e => setOverrideEdit(e.target.checked)} />
             Allow editing while run is active
           </label>
+          <div className="space-x-2">
+            <button className="px-3 py-1 bg-blue-500 text-white rounded" onClick={buyOklo}>Buy 1 OKLO</button>
+            <button className="px-3 py-1 bg-blue-500 text-white rounded" onClick={sellOklo}>Sell 1 OKLO</button>
+            <button className="px-3 py-1 bg-red-500 text-white rounded" onClick={resetPaperAccount}>Reset Paper</button>
+          </div>
+          <div className="text-sm space-x-2">
+            {buyStatus && <span>{buyStatus}</span>}
+            {sellStatus && <span>{sellStatus}</span>}
+            {resetStatus && <span>{resetStatus}</span>}
+          </div>
+          <div className="mt-2 space-x-2">
+            <input className="border rounded p-1 dark:border-gray-700 dark:bg-gray-800" placeholder="Symbol" value={symbolInput} onChange={e => setSymbolInput(e.target.value.toUpperCase())} />
+            <button className="px-2 py-1 bg-blue-500 text-white rounded" onClick={fetchPrice}>Get Price</button>
+          </div>
+          <div className="text-sm">
+            {quoteStatus && <span>{quoteStatus}</span>}
+            {symbolQuote && !quoteStatus && (
+              <span>Bid ${symbolQuote.bid} Ask ${symbolQuote.ask}</span>
+            )}
+          </div>
           <table className="min-w-full text-sm divide-y divide-gray-300 dark:divide-gray-700">
             <thead>
               <tr className="bg-gray-100 dark:bg-gray-800">
