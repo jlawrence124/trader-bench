@@ -210,6 +210,28 @@ async function getAccountInfo() {
 }
 
 /**
+ * Get portfolio equity history
+ * @param {string} start - Start time (ISO 8601)
+ * @param {string} end - End time (ISO 8601)
+ * @param {string} [timeframe='1Min'] - Bar timeframe
+ * @returns {Promise<object>} Portfolio history data
+ */
+async function getPortfolioHistory(start, end, timeframe = '1Min') {
+    try {
+        const response = await tradingApi.get('/v2/account/portfolio/history', {
+            params: { start, end, timeframe },
+        });
+        return response.data;
+    } catch (error) {
+        const errorMessage = error.response
+            ? `API Error: ${error.response.status} - ${JSON.stringify(error.response.data)}`
+            : `Network Error: ${error.message}`;
+        console.error('Error fetching portfolio history:', errorMessage);
+        throw new Error(`Failed to fetch portfolio history: ${errorMessage}`);
+    }
+}
+
+/**
  * Get historical market data
  * @param {string} symbol - Stock symbol
  * @param {string} timeframe - Bar timeframe (e.g., '1D', '1H', '15Min')
@@ -303,6 +325,7 @@ module.exports = {
     getPositions,
     getOrders,
     getAccountInfo,
+    getPortfolioHistory,
     getHistoricalBars,
     getPerformanceMetrics,
     compareWithSP500,

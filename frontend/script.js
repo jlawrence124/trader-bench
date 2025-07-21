@@ -37,6 +37,8 @@ function App() {
   const [missingInputs, setMissingInputs] = useState({});
   const logRef = useRef(null); // benchmark running log
   const logViewRef = useRef(null); // selected log viewer
+  const performanceChartRef = useRef(null);
+  const performanceChartInstance = useRef(null);
   const [connectionStatus, setConnectionStatus] = useState('');
   const [initialEquity, setInitialEquity] = useState(null);
   const [equityHistory, setEquityHistory] = useState([]);
@@ -44,6 +46,7 @@ function App() {
   const positionsChartRef = useRef(null);
   const equityChartInstance = useRef(null);
   const positionsChartInstance = useRef(null);
+  const [expandedRun, setExpandedRun] = useState(null);
 
   const infoMap = {
     MCP_PORT: 'Port for the HTTP MCP server (e.g., 4000)',
@@ -278,6 +281,33 @@ function App() {
     };
   }, [positions]);
 
+  useEffect(() => {
+    if (expandedRun === null || !performanceChartRef.current) return;
+    const run = runs[expandedRun];
+    if (!run || !run.equityHistory || !run.equityHistory.length) return;
+    const labels = run.equityHistory.map((_, i) => i + 1);
+    const data = run.equityHistory;
+    if (performanceChartInstance.current) performanceChartInstance.current.destroy();
+    const ctx = performanceChartRef.current.getContext('2d');
+    performanceChartInstance.current = new Chart(ctx, {
+      type: 'line',
+      data: {
+        labels,
+        datasets: [{
+          label: 'Equity',
+          data,
+          borderColor: '#3b82f6',
+          backgroundColor: 'rgba(59,130,246,0.3)',
+          tension: 0.1
+        }]
+      },
+      options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } } }
+    });
+    return () => {
+      if (performanceChartInstance.current) performanceChartInstance.current.destroy();
+    };
+  }, [expandedRun, runs]);
+
   const loadPositions = () => {
     fetch('/api/positions')
       .then(res => res.json())
@@ -496,6 +526,12 @@ function App() {
 
       {activeTab === 'runs' && (
         <section className="p-4 flex-1 overflow-auto">
+          {expandedRun !== null && (
+            <div className="relative mb-4 max-w-xl mx-auto" style={{ height: '40vh' }}>
+              <button className="absolute top-0 right-0 p-1" onClick={() => setExpandedRun(null)}>✕</button>
+              <canvas ref={performanceChartRef} className="w-full h-full"></canvas>
+            </div>
+          )}
           <div className="overflow-x-auto">
             <table className="min-w-full text-sm divide-y divide-gray-300 dark:divide-gray-700">
             <thead>
@@ -513,7 +549,7 @@ function App() {
               {runs.map((r,i) => {
                 const diff = r.spyGain !== 0 ? ((r.portfolioGain - r.spyGain) / Math.abs(r.spyGain)) * 100 : 0;
                 return (
-                  <tr key={i} className="hover:bg-indigo-50 dark:hover:bg-indigo-900">
+                  <tr key={i} className="hover:bg-indigo-50 dark:hover:bg-indigo-900 cursor-pointer" onClick={() => setExpandedRun(expandedRun === i ? null : i)}>
                     <td className="p-2">{r.model}</td>
                     <td className="p-2">{formatDateTime(r.startDate || r.date)}</td>
                     <td className="p-2">{formatDateTime(r.firstTradeDate)}</td>

@@ -40,6 +40,11 @@ function startTradingWindow() {
                 startTime.toISOString().split('T')[0],
                 end.toISOString().split('T')[0]
             );
+            const history = await alpacaService.getPortfolioHistory(
+                startTime.toISOString(),
+                end.toISOString(),
+                '1Min'
+            );
             appendRun({
                 model: modelName,
                 runId,
@@ -47,6 +52,7 @@ function startTradingWindow() {
                 endDate: end.toISOString(),
                 spyGain: comparison.spyGain,
                 portfolioGain: comparison.accountGain,
+                equityHistory: history.equity || history
             });
         } catch (err) {
             console.error('Failed to record run results:', err);

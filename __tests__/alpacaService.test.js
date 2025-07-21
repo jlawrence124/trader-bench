@@ -55,6 +55,13 @@ describe('alpacaService', () => {
     expect(result).toEqual([{ id: '1', symbol: 'AAPL' }]);
   });
 
+  test('getPortfolioHistory returns equity data', async () => {
+    mockTradingGet.mockResolvedValueOnce({ data: { equity: [1, 2, 3] } });
+    const result = await alpacaService.getPortfolioHistory('2023-01-01T00:00:00Z', '2023-01-01T01:00:00Z', '1Min');
+    expect(mockTradingGet).toHaveBeenCalledWith('/v2/account/portfolio/history', { params: { start: '2023-01-01T00:00:00Z', end: '2023-01-01T01:00:00Z', timeframe: '1Min' } });
+    expect(result).toEqual({ equity: [1, 2, 3] });
+  });
+
   test('compareWithSP500 calculates gains', async () => {
     mockTradingGet.mockResolvedValueOnce({ data: { equity: [100000, 101000] } });
     mockMarketGet.mockResolvedValueOnce({ data: { bars: [{ c: 400 }, { c: 404 }] } });
