@@ -166,6 +166,32 @@ async function getPositions() {
 }
 
 /**
+ * Get recent orders
+ * @param {number} limit - Maximum number of orders to fetch
+ * @param {string} status - Order status filter
+ * @returns {Promise<Array>} - Array of orders
+ */
+async function getOrders(limit = 50, status = 'all') {
+    try {
+        const response = await tradingApi.get('/v2/orders', {
+            params: {
+                limit,
+                status,
+                direction: 'desc',
+            },
+        });
+        return response.data;
+    } catch (error) {
+        const errorMessage = error.response
+            ? `API Error: ${error.response.status} - ${JSON.stringify(error.response.data)}`
+            : `Network Error: ${error.message}`;
+
+        console.error('Error fetching orders:', errorMessage);
+        throw new Error(`Failed to fetch orders: ${errorMessage}`);
+    }
+}
+
+/**
  * Get account information
  * @returns {Promise<object>} - Account details
  */
@@ -275,6 +301,7 @@ module.exports = {
     cancelAllOrders,
     closeAllPositions,
     getPositions,
+    getOrders,
     getAccountInfo,
     getHistoricalBars,
     getPerformanceMetrics,

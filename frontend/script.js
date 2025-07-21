@@ -19,9 +19,13 @@ function App() {
   const [benchmarkLog, setBenchmarkLog] = useState('');
   const [account, setAccount] = useState(null);
   const [positions, setPositions] = useState([]);
+  const [orders, setOrders] = useState([]);
   const [buyStatus, setBuyStatus] = useState('');
   const [sellStatus, setSellStatus] = useState('');
   const [resetStatus, setResetStatus] = useState('');
+  const [symbolInput, setSymbolInput] = useState('');
+  const [symbolQuote, setSymbolQuote] = useState(null);
+  const [quoteStatus, setQuoteStatus] = useState('');
   const [selectedPosition, setSelectedPosition] = useState(null);
   const [envVars, setEnvVars] = useState([]);
   const [showSecret, setShowSecret] = useState({});
@@ -86,6 +90,9 @@ function App() {
     if (activeTab === 'positions' || activeTab === 'overview') {
       loadAccount();
       loadPositions();
+    }
+    if (activeTab === 'orders') {
+      loadOrders();
     }
     if (activeTab === 'debug') {
       loadRunStatus();
@@ -225,7 +232,12 @@ function App() {
           tension: 0.1
         }]
       },
-      options: { scales: { x: { display: false } }, plugins: { legend: { display: false } } }
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        scales: { x: { display: false } },
+        plugins: { legend: { display: false } }
+      }
     });
     return () => {
       if (equityChartInstance.current) equityChartInstance.current.destroy();
@@ -248,7 +260,11 @@ function App() {
           backgroundColor: '#34d399'
         }]
       },
-      options: { plugins: { legend: { display: false } } }
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: { legend: { display: false } }
+      }
     });
     return () => {
       if (positionsChartInstance.current) positionsChartInstance.current.destroy();
@@ -269,6 +285,28 @@ function App() {
 
   const updatePositionsChart = () => {
     loadPositions();
+  };
+
+  const loadOrders = () => {
+    fetch('/api/orders')
+      .then(res => res.json())
+      .then(data => setOrders(data));
+  };
+
+  const fetchPrice = () => {
+    if (!symbolInput) return;
+    setQuoteStatus('Fetching...');
+    fetch(`/api/market/${encodeURIComponent(symbolInput)}`)
+      .then(res => res.json())
+      .then(data => {
+        setQuoteStatus('');
+        setSymbolQuote(data);
+      })
+      .catch(err => {
+        const msg = err && err.error ? err.error : err.message || 'Error';
+        setQuoteStatus(`Error: ${msg}`);
+        setSymbolQuote(null);
+      });
   };
 
   const loadLog = (name) => {
@@ -444,6 +482,7 @@ function App() {
         <button className={`px-3 py-1 rounded ${activeTab==='logs'?'bg-blue-500 text-white':'bg-gray-200 dark:bg-gray-700 dark:text-gray-200'}`} onClick={() => setActiveTab('logs')}>Logs</button>
         <button className={`px-3 py-1 rounded ${activeTab==='benchmark'?'bg-blue-500 text-white':'bg-gray-200 dark:bg-gray-700 dark:text-gray-200'}`} onClick={() => setActiveTab('benchmark')}>Benchmark</button>
         <button className={`px-3 py-1 rounded ${activeTab==='positions'?'bg-blue-500 text-white':'bg-gray-200 dark:bg-gray-700 dark:text-gray-200'}`} onClick={() => setActiveTab('positions')}>Positions</button>
+        <button className={`px-3 py-1 rounded ${activeTab==='orders'?'bg-blue-500 text-white':'bg-gray-200 dark:bg-gray-700 dark:text-gray-200'}`} onClick={() => setActiveTab('orders')}>Orders</button>
         <button className={`px-3 py-1 rounded ${activeTab==='debug'?'bg-blue-500 text-white':'bg-gray-200 dark:bg-gray-700 dark:text-gray-200'}`} onClick={() => setActiveTab('debug')}>Debug</button>
         <button className="px-3 py-1 rounded bg-gray-300 dark:bg-gray-700 text-gray-500" disabled>Leaderboard (Coming Soon)</button>
       </nav>
@@ -576,7 +615,9 @@ function App() {
                 {equityHistory.length >= 3 ? (
                   <>
                     <button className="mt-2 mb-1 px-3 py-1 bg-blue-500 text-white rounded" onClick={updateEquityChart}>Update Chart</button>
-                    <canvas ref={equityChartRef} className="mt-1 mx-auto w-1/3" style={{ height: '20vh' }}></canvas>
+                    <div className="mt-1 mx-auto w-1/3" style={{ height: '20vh' }}>
+                      <canvas ref={equityChartRef} className="w-full h-full"></canvas>
+                    </div>
                   </>
                 ) : (
                   <p className="text-sm mt-2">Equity chart will appear once more data is available.</p>
@@ -586,7 +627,9 @@ function App() {
                 <h3 className="font-bold mb-1">Positions</h3>
                 <p>Total PNL: ${positions.reduce((a,p)=>a+parseFloat(p.unrealized_pl||0),0).toFixed(2)}</p>
                 <button className="mb-1 px-3 py-1 bg-blue-500 text-white rounded" onClick={updatePositionsChart}>Update Chart</button>
-                <canvas ref={positionsChartRef} className="mb-2 mx-auto w-1/3" style={{ height: '20vh' }}></canvas>
+                <div className="mb-2 mx-auto w-1/3" style={{ height: '20vh' }}>
+                  <canvas ref={positionsChartRef} className="w-full h-full"></canvas>
+                </div>
                 <table className="min-w-full text-sm divide-y divide-gray-300 dark:divide-gray-700">
                   <thead>
                     <tr className="bg-gray-100 dark:bg-gray-800">
@@ -611,6 +654,34 @@ function App() {
         </section>
       )}
 
+      {activeTab === 'orders' && (
+        <section className="p-4 space-y-2 flex-1 overflow-auto">
+          <button className="mb-2 px-3 py-1 bg-blue-500 text-white rounded" onClick={loadOrders}>Refresh</button>
+          <table className="min-w-full text-sm divide-y divide-gray-300 dark:divide-gray-700">
+            <thead>
+              <tr className="bg-gray-100 dark:bg-gray-800">
+                <th className="p-1 text-left">Symbol</th>
+                <th className="p-1 text-left">Qty</th>
+                <th className="p-1 text-left">Side</th>
+                <th className="p-1 text-left">Status</th>
+                <th className="p-1 text-left">Submitted</th>
+              </tr>
+            </thead>
+            <tbody>
+              {orders.map(o => (
+                <tr key={o.id} className="hover:bg-indigo-50 dark:hover:bg-indigo-900">
+                  <td className="p-1">{o.symbol}</td>
+                  <td className="p-1">{o.qty}</td>
+                  <td className="p-1">{o.side}</td>
+                  <td className="p-1">{o.status}</td>
+                  <td className="p-1">{formatDateTime(o.submitted_at)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </section>
+      )}
+
       {activeTab === 'debug' && (
         <section className="p-4 flex-1 overflow-auto space-y-2">
           <label className="inline-flex items-center">
@@ -626,6 +697,16 @@ function App() {
             {buyStatus && <span>{buyStatus}</span>}
             {sellStatus && <span>{sellStatus}</span>}
             {resetStatus && <span>{resetStatus}</span>}
+          </div>
+          <div className="mt-2 space-x-2">
+            <input className="border rounded p-1 dark:border-gray-700 dark:bg-gray-800" placeholder="Symbol" value={symbolInput} onChange={e => setSymbolInput(e.target.value.toUpperCase())} />
+            <button className="px-2 py-1 bg-blue-500 text-white rounded" onClick={fetchPrice}>Get Price</button>
+          </div>
+          <div className="text-sm">
+            {quoteStatus && <span>{quoteStatus}</span>}
+            {symbolQuote && !quoteStatus && (
+              <span>Bid ${symbolQuote.bid} Ask ${symbolQuote.ask}</span>
+            )}
           </div>
           <table className="min-w-full text-sm divide-y divide-gray-300 dark:divide-gray-700">
             <thead>

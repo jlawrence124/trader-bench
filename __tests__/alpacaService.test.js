@@ -48,6 +48,13 @@ describe('alpacaService', () => {
     await expect(alpacaService.submitOrder({ symbol: 'AAPL' })).rejects.toThrow(/Missing required fields/);
   });
 
+  test('getOrders fetches list', async () => {
+    mockTradingGet.mockResolvedValueOnce({ data: [{ id: '1', symbol: 'AAPL' }] });
+    const result = await alpacaService.getOrders(10, 'all');
+    expect(mockTradingGet).toHaveBeenCalledWith('/v2/orders', { params: { limit: 10, status: 'all', direction: 'desc' } });
+    expect(result).toEqual([{ id: '1', symbol: 'AAPL' }]);
+  });
+
   test('compareWithSP500 calculates gains', async () => {
     mockTradingGet.mockResolvedValueOnce({ data: { equity: [100000, 101000] } });
     mockMarketGet.mockResolvedValueOnce({ data: { bars: [{ c: 400 }, { c: 404 }] } });

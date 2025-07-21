@@ -209,16 +209,18 @@ app.get('/api/run-log', (req, res) => {
   }
 
   const filterLog = (text) => {
-    if (!runStartTime) return '';
     const lines = text.split('\n').filter((l) => l.trim());
-    const filtered = lines.filter((l) => {
-      try {
-        const t = JSON.parse(l).timestamp;
-        return !t || new Date(t) >= runStartTime;
-      } catch {
-        return false;
-      }
-    });
+    let filtered = lines;
+    if (runStartTime) {
+      filtered = lines.filter((l) => {
+        try {
+          const t = JSON.parse(l).timestamp;
+          return !t || new Date(t) >= runStartTime;
+        } catch {
+          return false;
+        }
+      });
+    }
     return filtered.slice(-100).join('\n');
   };
 
@@ -258,6 +260,17 @@ app.get('/api/market/:symbol', async (req, res) => {
   try {
     const symbol = req.params.symbol;
     const data = await alpaca.getMarketData(symbol);
+    res.json(data);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.get('/api/orders', async (req, res) => {
+  try {
+    const limit = parseInt(req.query.limit) || 50;
+    const status = req.query.status || 'all';
+    const data = await alpaca.getOrders(limit, status);
     res.json(data);
   } catch (err) {
     res.status(500).json({ error: err.message });
