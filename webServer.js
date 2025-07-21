@@ -3,6 +3,24 @@ const path = require('path');
 const fs = require('fs');
 const { spawn } = require('child_process');
 const alpaca = require('./src/alpacaService');
+require('dotenv/config');
+
+// provide defaults so missing MCP vars don't block the UI
+process.env.MCP_PORT = process.env.MCP_PORT || '4000';
+process.env.MCP_SERVER_URL = process.env.MCP_SERVER_URL || `http://localhost:${process.env.MCP_PORT}/rpc`;
+
+function tailFile(filePath, maxBytes = 65536) {
+  const { size } = fs.statSync(filePath);
+  const start = Math.max(0, size - maxBytes);
+  const fd = fs.openSync(filePath, 'r');
+  try {
+    const buffer = Buffer.alloc(size - start);
+    fs.readSync(fd, buffer, 0, buffer.length, start);
+    return buffer.toString('utf8');
+  } finally {
+    fs.closeSync(fd);
+  }
+}
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -18,8 +36,77 @@ let benchmarkProcess = null;
 
 // ----- Utility Endpoints -----
 app.get('/api/env-check', (req, res) => {
-  const hasKeys = Boolean(process.env.APCA_API_KEY && process.env.APCA_API_SECRET);
-  res.json({ hasKeys });
+  const vars = ['APCA_API_KEY', 'APCA_API_SECRET', 'AGENT_CMD'];
+  const missing = vars.filter(v => !process.env[v]);
+  const hasKeys = missing.length === 0;
+  res.json({ hasKeys, missing });
+});
+
+app.get('/api/run-status', (req, res) => {
+  res.json({ running: Boolean(benchmarkProcess) });
+});
+
+// List configured environment variables for debugging
+app.get('/api/env-vars', (req, res) => {
+  const vars = [
+    { name: 'APCA_API_KEY', secret: true },
+    { name: 'APCA_API_SECRET', secret: true },
+    { name: 'APCA_API_BASE_URL', secret: false },
+    { name: 'MCP_PORT', secret: false },
+    { name: 'AGENT_CMD', secret: false },
+    { name: 'MCP_SERVER_URL', secret: false },
+    { name: 'MODEL_NAME', secret: false },
+  ];
+
+  const values = vars.map(v => ({
+    name: v.name,
+    value: process.env[v.name] || '',
+    secret: v.secret,
+  }));
+
+  res.json(values);
+});
+
+app.post('/api/set-env-var', (req, res) => {
+  const { name, value, override } = req.body || {};
+  if (!name) return res.status(400).json({ error: 'Missing name' });
+  if (benchmarkProcess && !override) {
+    return res.status(400).json({ error: 'Benchmark is running' });
+  }
+  let env = '';
+  if (fs.existsSync('.env')) env = fs.readFileSync('.env', 'utf8');
+
+  if (!value) {
+    delete process.env[name];
+    if (name === 'AGENT_CMD') delete process.env.MODEL_NAME;
+    env = env.replace(new RegExp(`^${name}=.*\n?`, 'm'), '');
+    if (name === 'AGENT_CMD') env = env.replace(/^MODEL_NAME=.*\n?/m, '');
+    fs.writeFileSync('.env', env.trim() + '\n');
+    return res.json({ success: true });
+  }
+
+  process.env[name] = value;
+  if (name === 'AGENT_CMD' && !process.env.MODEL_NAME) {
+    const model = value.split(/\s+/)[0].toLowerCase();
+    process.env.MODEL_NAME = model;
+  }
+
+  const line = new RegExp(`^${name}=.*$`, 'm');
+  if (line.test(env)) {
+    env = env.replace(line, `${name}=${value}`);
+  } else {
+    env += `\n${name}=${value}`;
+  }
+  if (name === 'AGENT_CMD') {
+    const model = process.env.MODEL_NAME;
+    if (/MODEL_NAME=/.test(env)) {
+      env = env.replace(/^MODEL_NAME=.*$/m, `MODEL_NAME=${model}`);
+    } else {
+      env += `\nMODEL_NAME=${model}`;
+    }
+  }
+  fs.writeFileSync('.env', env.trim() + '\n');
+  res.json({ success: true });
 });
 
 app.post('/api/save-keys', (req, res) => {
@@ -75,7 +162,8 @@ app.get('/api/logs/:name(*)', (req, res) => {
     filePath = path.join(agentLogsDir, name);
   }
   if (!fs.existsSync(filePath)) return res.status(404).json({ error: 'Not found' });
-  res.type('text/plain').send(fs.readFileSync(filePath, 'utf8'));
+  const content = tailFile(filePath, 200000);
+  res.type('text/plain').send(content);
 });
 
 app.get('/api/run-log', (req, res) => {
@@ -86,7 +174,8 @@ app.get('/api/run-log', (req, res) => {
     const files = fs.readdirSync(logsDir).filter(f => f.endsWith('.log')).sort();
     if (files.length) {
       const logPath = path.join(logsDir, files[files.length - 1]);
-      const lines = fs.readFileSync(logPath, 'utf8').split('\n').slice(-100).join('\n');
+      const content = tailFile(logPath);
+      const lines = content.split('\n').slice(-100).join('\n');
       output += '--- server log ---\n' + lines + '\n';
     }
   }
@@ -100,7 +189,8 @@ app.get('/api/run-log', (req, res) => {
     if (dirs.length) {
       const agentLog = path.join(agentLogsDir, dirs[0].dir, 'agent.log');
       if (fs.existsSync(agentLog)) {
-        const lines = fs.readFileSync(agentLog, 'utf8').split('\n').slice(-100).join('\n');
+        const content = tailFile(agentLog);
+        const lines = content.split('\n').slice(-100).join('\n');
         output += '\n--- agent log ---\n' + lines;
       }
     }

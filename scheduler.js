@@ -1,6 +1,7 @@
 
 const cron = require('node-cron');
-
+const { spawn } = require('child_process');
+const path = require('path');
 
 const tradingTimes = [
     '30 8 * * 1-5',  // 8:30 AM on weekdays
@@ -18,6 +19,14 @@ function startTradingWindow() {
     =================================================
     `);
 
+    const agentCmd = process.env.AGENT_CMD || `node ${path.join(__dirname, 'trading_agent', 'agent.js')}`;
+    const [cmd, ...args] = agentCmd.split(' ');
+    const mcpUrl = process.env.MCP_SERVER_URL || `http://localhost:${process.env.MCP_PORT || 4000}/rpc`;
+    const agent = spawn(cmd, args, {
+        stdio: 'inherit',
+        env: { ...process.env, MCP_SERVER_URL: mcpUrl },
+    });
+
     let countdown = tradingWindowMinutes * 60;
     const interval = setInterval(() => {
         countdown--;
@@ -25,6 +34,7 @@ function startTradingWindow() {
 
         if (countdown <= 0) {
             clearInterval(interval);
+            agent.kill();
             console.log(`
     =================================================
     Trading window CLOSED.
