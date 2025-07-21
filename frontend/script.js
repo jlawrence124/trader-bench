@@ -20,6 +20,8 @@ function App() {
   const [account, setAccount] = useState(null);
   const [positions, setPositions] = useState([]);
   const [buyStatus, setBuyStatus] = useState('');
+  const [sellStatus, setSellStatus] = useState('');
+  const [resetStatus, setResetStatus] = useState('');
   const [selectedPosition, setSelectedPosition] = useState(null);
   const [envVars, setEnvVars] = useState([]);
   const [showSecret, setShowSecret] = useState({});
@@ -166,6 +168,36 @@ function App() {
       .catch(err => {
         const msg = err && err.error ? err.error : err.message || 'Error';
         setBuyStatus(`Order failed: ${msg}`);
+      });
+  };
+
+  const sellOklo = () => {
+    setSellStatus('Placing order...');
+    fetch('/api/sell-oklo', { method: 'POST' })
+      .then(async res => {
+        const data = await res.json();
+        if (!res.ok) throw data;
+        setSellStatus('Order submitted');
+      })
+      .catch(err => {
+        const msg = err && err.error ? err.error : err.message || 'Error';
+        setSellStatus(`Order failed: ${msg}`);
+      });
+  };
+
+  const resetPaperAccount = () => {
+    setResetStatus('Resetting...');
+    fetch('/api/reset-paper', { method: 'POST' })
+      .then(async res => {
+        const data = await res.json();
+        if (!res.ok) throw data;
+        setResetStatus('Account cleared');
+        loadAccount();
+        loadPositions();
+      })
+      .catch(err => {
+        const msg = err && err.error ? err.error : err.message || 'Error';
+        setResetStatus(`Reset failed: ${msg}`);
       });
   };
 
@@ -585,9 +617,15 @@ function App() {
             <input type="checkbox" className="mr-2" checked={overrideEdit} onChange={e => setOverrideEdit(e.target.checked)} />
             Allow editing while run is active
           </label>
-          <div>
+          <div className="space-x-2">
             <button className="px-3 py-1 bg-blue-500 text-white rounded" onClick={buyOklo}>Buy 1 OKLO</button>
-            {buyStatus && <span className="ml-2 text-sm">{buyStatus}</span>}
+            <button className="px-3 py-1 bg-blue-500 text-white rounded" onClick={sellOklo}>Sell 1 OKLO</button>
+            <button className="px-3 py-1 bg-red-500 text-white rounded" onClick={resetPaperAccount}>Reset Paper</button>
+          </div>
+          <div className="text-sm space-x-2">
+            {buyStatus && <span>{buyStatus}</span>}
+            {sellStatus && <span>{sellStatus}</span>}
+            {resetStatus && <span>{resetStatus}</span>}
           </div>
           <table className="min-w-full text-sm divide-y divide-gray-300 dark:divide-gray-700">
             <thead>

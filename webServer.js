@@ -288,6 +288,31 @@ app.post('/api/buy-oklo', async (req, res) => {
   }
 });
 
+app.post('/api/sell-oklo', async (req, res) => {
+  try {
+    const result = await alpaca.submitOrder({
+      symbol: 'OKLO',
+      qty: 1,
+      side: 'sell',
+      type: 'market',
+      time_in_force: 'day',
+    });
+    res.json(result);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.post('/api/reset-paper', async (req, res) => {
+  try {
+    await alpaca.cancelAllOrders();
+    const result = await alpaca.closeAllPositions();
+    res.json(result);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 app.get('/api/test-alpaca', async (req, res) => {
   logger.info('Testing Alpaca connection');
   try {

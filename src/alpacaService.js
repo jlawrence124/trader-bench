@@ -112,6 +112,42 @@ async function cancelOrder(orderId) {
 }
 
 /**
+ * Cancel all open orders
+ * @returns {Promise<object>} - Result of cancellation
+ */
+async function cancelAllOrders() {
+    try {
+        const response = await tradingApi.delete('/v2/orders');
+        return response.data;
+    } catch (error) {
+        const errorMessage = error.response
+            ? `API Error: ${error.response.status} - ${JSON.stringify(error.response.data)}`
+            : `Network Error: ${error.message}`;
+
+        console.error('Error canceling all orders:', errorMessage);
+        throw new Error(`Failed to cancel orders: ${errorMessage}`);
+    }
+}
+
+/**
+ * Close all open positions
+ * @returns {Promise<object>} - Result of liquidation
+ */
+async function closeAllPositions() {
+    try {
+        const response = await tradingApi.delete('/v2/positions');
+        return response.data;
+    } catch (error) {
+        const errorMessage = error.response
+            ? `API Error: ${error.response.status} - ${JSON.stringify(error.response.data)}`
+            : `Network Error: ${error.message}`;
+
+        console.error('Error closing all positions:', errorMessage);
+        throw new Error(`Failed to close positions: ${errorMessage}`);
+    }
+}
+
+/**
  * Get current positions
  * @returns {Promise<Array>} - Array of current positions
  */
@@ -236,6 +272,8 @@ module.exports = {
     getMarketData,
     submitOrder,
     cancelOrder,
+    cancelAllOrders,
+    closeAllPositions,
     getPositions,
     getAccountInfo,
     getHistoricalBars,

@@ -62,4 +62,18 @@ describe('alpacaService', () => {
       relativeGain: 0
     });
   });
+
+  test('cancelAllOrders deletes all orders', async () => {
+    mockTradingDelete.mockResolvedValue({ data: { status: 'canceled' } });
+    const result = await alpacaService.cancelAllOrders();
+    expect(mockTradingDelete).toHaveBeenCalledWith('/v2/orders');
+    expect(result).toEqual({ status: 'canceled' });
+  });
+
+  test('closeAllPositions liquidates portfolio', async () => {
+    mockTradingDelete.mockResolvedValue({ data: { status: 'closed' } });
+    const result = await alpacaService.closeAllPositions();
+    expect(mockTradingDelete).toHaveBeenCalledWith('/v2/positions');
+    expect(result).toEqual({ status: 'closed' });
+  });
 });

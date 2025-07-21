@@ -108,7 +108,10 @@ browser view (the log files continue to grow on disk). A Debug tab lists
 important environment variables with secret values hidden by default, and each
 one has an edit or **Clear** control. If no run is active you can edit these
 values directly from the UI and optionally override the restriction with a
-checkbox. A placeholder tab for the future leaderboard is also included.
+checkbox. Quick controls let you buy or sell a single share of OKLO or reset the
+paper account (by canceling orders and liquidating positions). An "Overview"
+page summarizes equity, cash, buying power, total gain/loss, and day change with
+green/red styling. A placeholder tab for the future leaderboard is also included.
 
 ### GitHub Codespaces
 
