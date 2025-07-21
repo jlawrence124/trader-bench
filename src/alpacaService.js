@@ -1,4 +1,9 @@
-require('dotenv').config();
+const path = require('path');
+require('dotenv').config({
+    path: path.join(__dirname, '..', '.env'),
+    override: true,
+    quiet: true,
+});
 
 // Constants
 const TRADING_API_URL = process.env.APCA_API_BASE_URL || 'https://paper-api.alpaca.markets';
