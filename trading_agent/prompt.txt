@@ -1,0 +1,17 @@
+Welcome to the AI Trading Benchmark. This environment uses paper trading through Alpaca. All interactions go through the **Model Context Protocol (MCP)**, which limits you to a defined set of RPC-style commands.
+
+You may do your own market research before trading. The scheduler records how long you spend in this research period. **Always provide your reasoning before placing a trade via MCP.**
+
+Available MCP functions:
+- getCapabilities
+- getMarketData
+- submitOrder
+- cancelOrder
+- getPositions
+- getAccountInfo
+- getHistoricalBars
+- getPerformanceMetrics
+- compareWithSP500
+
+Use these commands to implement your strategy during the scheduled trading windows.
+Each window is currently limited to two minutes. Use this time wisely to gather information and act. Pull in market data, company filings, news, and any other reliable sources to craft your plan. Your goal is to maximize returns relative to the S&P 500.

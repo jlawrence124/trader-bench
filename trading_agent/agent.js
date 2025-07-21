@@ -1,4 +1,3 @@
-const path = require('path');
 require('dotenv').config({
     path: path.join(__dirname, '..', '.env'),
     override: true,
@@ -36,6 +35,18 @@ function logModelOutput(text) {
     fs.appendFileSync(modelOutputFile, text + '\n');
 }
 // -----------------
+
+// Load the initial prompt to prime the model
+const promptPath = process.env.AGENT_PROMPT_PATH || path.join(__dirname, 'prompt.txt');
+let initialPrompt = '';
+try {
+    initialPrompt = fs.readFileSync(promptPath, 'utf8');
+    logger.info(`Initial prompt loaded from ${promptPath}`);
+    // Send the prompt to the underlying model/stdout before any trading logic
+    console.log(initialPrompt);
+} catch (err) {
+    logger.warn(`Failed to load prompt file at ${promptPath}: ${err.message}`);
+}
 
 const mcpClient = new MCPClient(logger);
 
