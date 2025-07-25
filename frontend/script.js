@@ -24,6 +24,7 @@ function App() {
     const [sellStatus, setSellStatus] = useState('');
     const [resetStatus, setResetStatus] = useState('');
     const [agentStatus, setAgentStatus] = useState('');
+    const [agentPrompt, setAgentPrompt] = useState('');
     const [symbolInput, setSymbolInput] = useState('');
     const [symbolQuote, setSymbolQuote] = useState(null);
     const [quoteStatus, setQuoteStatus] = useState('');
@@ -217,7 +218,11 @@ function App() {
 
     const startAgent = () => {
         setAgentStatus('Starting...');
-        fetch('/api/run-agent', { method: 'POST' })
+        fetch('/api/run-agent', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ prompt: agentPrompt }),
+        })
             .then(async (res) => {
                 const data = await res.json();
                 if (!res.ok) throw data;
@@ -1172,6 +1177,12 @@ function App() {
                         >
                             Run Agent
                         </button>
+                        <input
+                            className="border rounded p-1 dark:border-gray-700 dark:bg-gray-800"
+                            placeholder="Prompt"
+                            value={agentPrompt}
+                            onChange={(e) => setAgentPrompt(e.target.value)}
+                        />
                     </div>
                     <div className="text-sm space-x-2">
                         {buyStatus && <span>{buyStatus}</span>}

@@ -16,7 +16,8 @@
     "dotenv": "^17.2.0",
     "node-cron": "^3.0.0",
     "uuid": "^11.1.0",
-    "express": "^4.19.2"
+    "express": "^4.19.2",
+    "shell-quote": "^1.8.0"
   },
   "devDependencies": {
     "axios-mock-adapter": "^2.1.0",
