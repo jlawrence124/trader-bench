@@ -153,9 +153,21 @@ app.post('/api/run-agent', (req, res) => {
   if (manualAgentProcess) {
     return res.status(400).json({ error: 'Agent already running' });
   }
-  const cmdStr = process.env.AGENT_CMD || `node ${path.join(__dirname, 'trading_agent', 'agent.js')}`;
-  const [cmd, ...args] = cmdStr.split(/\s+/);
-  const mcpUrl = process.env.MCP_SERVER_URL || `http://localhost:${process.env.MCP_PORT || 4000}/rpc`;
+  const cmdStr =
+    process.env.AGENT_CMD ||
+    `node ${path.join(__dirname, 'trading_agent', 'agent.js')}`;
+  const promptArg = req.body?.prompt;
+
+  const { parse } = require('shell-quote');
+  const parts = parse(cmdStr);
+  const cmd = parts[0];
+  let args = parts.slice(1);
+  if (promptArg) {
+    args = args.concat(parse(promptArg));
+  }
+  const mcpUrl =
+    process.env.MCP_SERVER_URL ||
+    `http://localhost:${process.env.MCP_PORT || 4000}/rpc`;
   manualAgentProcess = spawn(cmd, args, {
     stdio: 'inherit',
     env: { ...process.env, MCP_SERVER_URL: mcpUrl },
