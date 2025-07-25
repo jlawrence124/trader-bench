@@ -13,6 +13,18 @@ The benchmark is composed of two main components that run independently:
 3.  **Trading Agent (`trading_agent/`)**: This is the isolated environment where the AI's trading logic resides. The agent uses the shared `mcpClient.js` module to communicate with the MCP Server but has no direct access to any other part of the benchmark's code. This ensures that the agent's performance is evaluated solely on its ability to interact with the provided API.
 
 ---
+## Benchmark Flow
+
+`startAll.js` acts as the master layer that launches the MCP server, the scheduler, and the web dashboard. The scheduler wakes up four times each weekday and grants the trading agent a **two-minute** window to act. During this window the agent may browse the web for research, check account status via MCP, and submit orders.
+
+Default schedule (Eastern Time):
+
+- **8:30 AM** – pre-market (one hour before open)
+- **9:30 AM** – market open
+- **12:00 PM** – midday
+- **3:55 PM** – five minutes before market close
+
+After each run, the benchmark compares the portfolio gain against the S&P 500 (using the SPY ETF). The difference is saved to `data/runs.json` as that run's score.
 
 ## Getting Started
 
