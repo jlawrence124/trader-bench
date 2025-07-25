@@ -106,24 +106,6 @@ A simple React-based dashboard is available to view recent runs and logs. Start 
 npm run start:web
 ```
 
-Open `http://localhost:3000` in your browser. If Alpaca API keys are not found
-in your environment or `.env` file, you will be prompted to enter them. The
-interface uses **React** and **Tailwind CSS** for a modern look with automatic
-dark mode based on your system preferences. The runs table now shows start,
-first trading, and end datetimes with S&P and portfolio gains (in dollars) plus
-a percentage difference column. Clicking a row reveals side-by-side charts of
-the portfolio versus the S&P 500 (scaled to your starting equity) and the running difference.
-A logs tab lets you
-read server or agent logs,
-a Benchmark tab lets you start the processes, test your Alpaca connection (or call `/api/test-alpaca` directly),
-and monitor the combined running log (server and agent output). A separate **Positions** tab shows account
-equity, total P&L, and lets you drill into each holding for entry times and
-unrealized gains. Each log viewer has a **Clear** button that only clears the
-browser view (the log files continue to grow on disk). A Debug tab lists
-important environment variables with secret values hidden by default, and each
-one has an edit or **Clear** control. If no run is active you can edit these
-values directly from the UI and optionally override the restriction with a
-checkbox. Quick controls let you buy or sell a single share of OKLO, reset the paper account, or fetch the latest quote for any symbol. Recent orders appear on a dedicated tab, and an "Overview" page summarizes equity, cash, buying power, total gain/loss, and day change with green/red styling. A placeholder tab for the future leaderboard is also included.
 
 ### GitHub Codespaces
 
@@ -200,7 +182,6 @@ Additional variables:
 - `MCP_SERVER_URL` defaults to `http://localhost:${MCP_PORT}/rpc` and normally doesn't need to be changed.
 - `AGENT_CMD` is the CLI command used to launch your agent (e.g. `gemini`, `codex`, `claude`, or `opencode`).
 - `MODEL_NAME` is inferred from `AGENT_CMD` when you save it and tags each run.
-- `AGENT_PROMPT_PATH` overrides the default startup prompt shown to your model (defaults to `trading_agent/prompt.txt`).
 
 These variables can be inspected from the dashboard's **Debug** tab, which hides secret values unless you choose to reveal them. When the UI first loads it will prompt for any missing variables and you can continue anyway if you just want to explore.
 
@@ -217,23 +198,3 @@ dashboard to begin streaming these logs.
 Edit `scheduler.js` to change the trading schedule. The `tradingTimes` array
 holds cron expressions for window start times and `tradingWindowMinutes`
 controls how long each window stays open (default is two minutes).
-
-## Creating a Custom Agent Strategy
-
-The default agent in `trading_agent/agent.js` logs into the benchmark and shows
-basic API usage. Replace the `TODO` block in `runTradingLogic()` with your own
-strategy using the `MCPClient` methods. Example:
-
-```javascript
-// Example strategy snippet inside runTradingLogic
-const orderDetails = {
-    symbol: 'AAPL',
-    qty: 1,
-    side: 'buy',
-    type: 'market',
-    time_in_force: 'day'
-};
-const orderResult = await mcpClient.submitOrder(orderDetails);
-logger.info('Submitted order:', orderResult);
-```
-

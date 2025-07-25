@@ -23,6 +23,7 @@ function App() {
   const [buyStatus, setBuyStatus] = useState('');
   const [sellStatus, setSellStatus] = useState('');
   const [resetStatus, setResetStatus] = useState('');
+  const [agentStatus, setAgentStatus] = useState('');
   const [symbolInput, setSymbolInput] = useState('');
   const [symbolQuote, setSymbolQuote] = useState(null);
   const [quoteStatus, setQuoteStatus] = useState('');
@@ -211,6 +212,20 @@ function App() {
       .catch(err => {
         const msg = err && err.error ? err.error : err.message || 'Error';
         setResetStatus(`Reset failed: ${msg}`);
+      });
+  };
+
+  const startAgent = () => {
+    setAgentStatus('Starting...');
+    fetch('/api/run-agent', { method: 'POST' })
+      .then(async res => {
+        const data = await res.json();
+        if (!res.ok) throw data;
+        setAgentStatus('Agent started');
+      })
+      .catch(err => {
+        const msg = err && err.error ? err.error : err.message || 'Error';
+        setAgentStatus(`Failed: ${msg}`);
       });
   };
 
@@ -811,11 +826,13 @@ function App() {
             <button className="px-3 py-1 bg-blue-500 text-white rounded" onClick={buyOklo}>Buy 1 OKLO</button>
             <button className="px-3 py-1 bg-blue-500 text-white rounded" onClick={sellOklo}>Sell 1 OKLO</button>
             <button className="px-3 py-1 bg-red-500 text-white rounded" onClick={resetPaperAccount}>Reset Paper</button>
+            <button className="px-3 py-1 bg-green-600 text-white rounded" onClick={startAgent}>Run Agent</button>
           </div>
           <div className="text-sm space-x-2">
             {buyStatus && <span>{buyStatus}</span>}
             {sellStatus && <span>{sellStatus}</span>}
             {resetStatus && <span>{resetStatus}</span>}
+            {agentStatus && <span>{agentStatus}</span>}
           </div>
           <div className="mt-2 space-x-2">
             <input className="border rounded p-1 dark:border-gray-700 dark:bg-gray-800" placeholder="Symbol" value={symbolInput} onChange={e => setSymbolInput(e.target.value.toUpperCase())} />
