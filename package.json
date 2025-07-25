@@ -2,9 +2,9 @@
   "name": "bench_ai_spy",
   "version": "1.0.0",
   "description": "A stock trading bot using Alpaca for paper trading.",
-  "main": "mcpServer.js",
+  "main": "mcpHttpServer.js",
   "scripts": {
-    "start": "node mcpServer.js",
+    "start": "node mcpHttpServer.js",
     "start:scheduler": "node scheduler.js",
     "start:all": "node startAll.js",
     "test": "jest",

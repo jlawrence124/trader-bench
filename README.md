@@ -143,7 +143,6 @@ The agent can interact with the MCP server using the following methods:
 *   `getPositions()`: Retrieves a list of current positions.
 *   `getAccountInfo()`: Fetches account details.
 *   `getHistoricalBars(symbol, timeframe, start, end)`: Gets historical price data.
-*   `getPerformanceMetrics()`: A placeholder for fetching performance metrics.
 *   `compareWithSP500(start, end)`: Returns portfolio gains alongside equivalent gains for the S&P 500 (via the SPY ETF) for the given period.
 
 ## Developing Your Agent
@@ -156,7 +155,7 @@ The logic for your AI agent should be implemented in the `trading_agent/agent.js
 
 ```
 .
-├── mcpServer.js          # The main benchmark server
+├── mcpHttpServer.js      # The main benchmark server
 ├── scheduler.js          # Schedules the trading windows
 ├── package.json          # Project dependencies and scripts
 ├── .env.example          # Example environment file for Alpaca keys
