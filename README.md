@@ -182,7 +182,6 @@ Additional variables:
 - `MCP_SERVER_URL` defaults to `http://localhost:${MCP_PORT}/rpc` and normally doesn't need to be changed.
 - `AGENT_CMD` is the CLI command used to launch your agent (e.g. `gemini`, `codex`, `claude`, or `opencode`).
 - `MODEL_NAME` is inferred from `AGENT_CMD` when you save it and tags each run.
-- `AGENT_PROMPT_PATH` overrides the default startup prompt shown to your model (defaults to `trading_agent/prompt.txt`).
 
 These variables can be inspected from the dashboard's **Debug** tab, which hides secret values unless you choose to reveal them. When the UI first loads it will prompt for any missing variables and you can continue anyway if you just want to explore.
 
@@ -199,23 +198,3 @@ dashboard to begin streaming these logs.
 Edit `scheduler.js` to change the trading schedule. The `tradingTimes` array
 holds cron expressions for window start times and `tradingWindowMinutes`
 controls how long each window stays open (default is two minutes).
-
-## Creating a Custom Agent Strategy
-
-The default agent in `trading_agent/agent.js` logs into the benchmark and shows
-basic API usage. Replace the `TODO` block in `runTradingLogic()` with your own
-strategy using the `MCPClient` methods. Example:
-
-```javascript
-// Example strategy snippet inside runTradingLogic
-const orderDetails = {
-    symbol: 'AAPL',
-    qty: 1,
-    side: 'buy',
-    type: 'market',
-    time_in_force: 'day'
-};
-const orderResult = await mcpClient.submitOrder(orderDetails);
-logger.info('Submitted order:', orderResult);
-```
-
