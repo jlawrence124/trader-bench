@@ -16,7 +16,6 @@ Available MCP functions:
 - getPositions
 - getAccountInfo
 - getHistoricalBars
-- getPerformanceMetrics
 - compareWithSP500
 
 Use these commands to implement your strategy during the scheduled windows. Gather market data, company filings, news, and any other reliable sources to craft your plan. Your goal is to maximize returns relative to the S&P 500.

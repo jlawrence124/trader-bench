@@ -258,21 +258,6 @@ async function getHistoricalBars(symbol, timeframe, start, end) {
     }
 }
 
-/**
- * Fetches performance metrics. (Placeholder)
- * @returns {Promise<object>} - A promise resolving to performance metrics.
- */
-async function getPerformanceMetrics() {
-    console.log('Fetching performance metrics... (Placeholder)');
-    // Replace with actual API call to get performance metrics
-    try {
-        // Example: const response = await api.get('/v2/account/activities'); // Example endpoint
-        return { daily_profit_loss: 500, total_equity: 150000 }; // Example placeholder
-    } catch (error) {
-        console.error('Error fetching performance metrics:', error);
-        throw error;
-    }
-}
 
 /**
  * Compare account performance against the S&P 500 (using SPY ETF data).
@@ -327,6 +312,5 @@ module.exports = {
     getAccountInfo,
     getPortfolioHistory,
     getHistoricalBars,
-    getPerformanceMetrics,
     compareWithSP500,
 };

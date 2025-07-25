@@ -1,8 +1,0 @@
-{
-    "ai": {
-        "provider": "custom",
-        "custom": {
-            "url": "http://localhost:8080"
-        }
-    }
-}
