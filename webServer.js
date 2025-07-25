@@ -163,7 +163,7 @@ app.post('/api/run-agent', (req, res) => {
   const cmd = parts[0];
   let args = parts.slice(1);
   if (promptArg) {
-    args = args.concat(parse(promptArg));
+    args.push(promptArg);
   }
   const mcpUrl =
     process.env.MCP_SERVER_URL ||

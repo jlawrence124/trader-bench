@@ -93,7 +93,8 @@ export AGENT_CMD="gemini -p trading_agent/prompt.txt"
 # or
 export AGENT_CMD='codex --full-auto "create the fanciest todo-list app"'
 ```
-When launching from the dashboard, enter a prompt in the **Debug** tab before clicking **Run Agent** and it will be appended to `AGENT_CMD`.
+
+When launching from the dashboard, enter a prompt in the **Debug** tab before clicking **Run Agent** and it will be appended to `AGENT_CMD` as a single argument.
 
 **Convenience Command**
 
@@ -193,8 +194,10 @@ Additional variables:
 - To avoid interactive mode with CLI agents, include your prompt in `AGENT_CMD`.
   For example: `gemini -p trading_agent/prompt.txt` or
   `codex --full-auto "create the fanciest todo-list app"`.
-  You can also POST `{ "prompt": "your text" }` to `/api/run-agent` to append a prompt
-  when launching from the dashboard.
+
+  You can also POST `{ "prompt": "your text" }` to `/api/run-agent` to append the text
+  as a single argument when launching from the dashboard.
+
 
 These variables can be inspected from the dashboard's **Debug** tab, which hides secret values unless you choose to reveal them. When the UI first loads it will prompt for any missing variables and you can continue anyway if you just want to explore.
 
