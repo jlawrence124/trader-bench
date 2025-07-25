@@ -107,12 +107,6 @@ npm run start:web
 ```
 
 
-### GitHub Codespaces
-
-This repo includes a `.devcontainer` folder so you can spin up a Codespace (or Dev Container) and run the dashboard entirely in the cloud. The container automatically installs dependencies and forwards port 3000. From a browser or mobile device you can start the UI with `npm run start:web`.
-
----
-
 ## API Capabilities
 
 The agent can interact with the MCP server using the following methods:
