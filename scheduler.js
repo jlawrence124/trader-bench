@@ -6,10 +6,10 @@ const alpacaService = require('./src/alpacaService');
 const { appendRun } = require('./lib/runLogger');
 
 const tradingTimes = [
-    '30 8 * * 1-5',  // 8:30 AM on weekdays
-    '30 9 * * 1-5',  // 9:30 AM on weekdays
-    '0 12 * * 1-5', // 12:00 PM on weekdays
-    '0 16 * * 1-5'  // 4:00 PM on weekdays
+    '30 8 * * 1-5',  // 8:30 AM on weekdays (pre-market)
+    '30 9 * * 1-5',  // 9:30 AM on weekdays (open)
+    '0 12 * * 1-5',  // 12:00 PM on weekdays (midday)
+    '55 15 * * 1-5'  // 3:55 PM on weekdays (five minutes before close)
 ];
 
 const tradingWindowMinutes = 2;
