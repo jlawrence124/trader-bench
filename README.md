@@ -1,4 +1,4 @@
-# AI Trading Benchmark
+# Trader Bench
 
 This project provides a sandboxed environment for testing the performance of AI agents in a simulated stock trading scenario using paper money from [Alpaca](https://alpaca.markets/). It is designed to create a "black box" testing environment where the agent interacts with the market through a clearly defined API, without access to the underlying benchmark infrastructure.
 
