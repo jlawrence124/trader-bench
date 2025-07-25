@@ -38,6 +38,7 @@ let runStartTime = null;
 let serverLogFile = null;
 let agentLogFile = null;
 let modelOutputFile = null;
+let manualAgentProcess = null;
 
 // ----- Utility Endpoints -----
 app.get('/api/env-check', (req, res) => {
@@ -146,6 +147,23 @@ app.post('/api/start-benchmark', (req, res) => {
   });
   modelOutputFile = null;
   res.json({ running: true });
+});
+
+app.post('/api/run-agent', (req, res) => {
+  if (manualAgentProcess) {
+    return res.status(400).json({ error: 'Agent already running' });
+  }
+  const cmdStr = process.env.AGENT_CMD || `node ${path.join(__dirname, 'trading_agent', 'agent.js')}`;
+  const [cmd, ...args] = cmdStr.split(/\s+/);
+  const mcpUrl = process.env.MCP_SERVER_URL || `http://localhost:${process.env.MCP_PORT || 4000}/rpc`;
+  manualAgentProcess = spawn(cmd, args, {
+    stdio: 'inherit',
+    env: { ...process.env, MCP_SERVER_URL: mcpUrl },
+  });
+  manualAgentProcess.on('close', () => {
+    manualAgentProcess = null;
+  });
+  res.json({ started: true });
 });
 
 app.get('/api/runs', (req, res) => {
