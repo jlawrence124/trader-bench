@@ -182,6 +182,7 @@ Additional variables:
 - `MCP_SERVER_URL` defaults to `http://localhost:${MCP_PORT}/rpc` and normally doesn't need to be changed.
 - `AGENT_CMD` is the CLI command used to launch your agent (e.g. `gemini`, `codex`, `claude`, or `opencode`).
 - `MODEL_NAME` is inferred from `AGENT_CMD` when you save it and tags each run.
+- `AGENT_STARTUP_DELAY` waits this many seconds before the countdown begins so heavier agents can finish loading.
 
 These variables can be inspected from the dashboard's **Debug** tab, which hides secret values unless you choose to reveal them. When the UI first loads it will prompt for any missing variables and you can continue anyway if you just want to explore.
 
@@ -198,3 +199,5 @@ dashboard to begin streaming these logs.
 Edit `scheduler.js` to change the trading schedule. The `tradingTimes` array
 holds cron expressions for window start times and `tradingWindowMinutes`
 controls how long each window stays open (default is two minutes).
+Set `AGENT_STARTUP_DELAY` if your agent needs extra time to load before the
+window timer begins.
