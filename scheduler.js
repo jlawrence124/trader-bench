@@ -13,6 +13,7 @@ const tradingTimes = [
 ];
 
 const tradingWindowMinutes = 2;
+const startupDelaySeconds = parseInt(process.env.AGENT_STARTUP_DELAY || '0', 10);
 
 function startTradingWindow() {
     console.log(`
@@ -34,6 +35,7 @@ function startTradingWindow() {
     });
 
     agent.on('close', async () => {
+        if (countdownInterval) clearInterval(countdownInterval);
         const end = new Date();
         try {
             const comparison = await alpacaService.compareWithSP500(
@@ -70,21 +72,31 @@ function startTradingWindow() {
         }
     });
 
-    let countdown = tradingWindowMinutes * 60;
-    const interval = setInterval(() => {
-        countdown--;
-        process.stdout.write(`Time remaining: ${Math.floor(countdown / 60)}m ${countdown % 60}s   \r`);
+    let countdownInterval;
+    const startCountdown = () => {
+        let countdown = tradingWindowMinutes * 60;
+        countdownInterval = setInterval(() => {
+            countdown--;
+            process.stdout.write(`Time remaining: ${Math.floor(countdown / 60)}m ${countdown % 60}s   \r`);
 
-        if (countdown <= 0) {
-            clearInterval(interval);
-            agent.kill();
-            console.log(`
+            if (countdown <= 0) {
+                clearInterval(countdownInterval);
+                agent.kill();
+                console.log(`
     =================================================
     Trading window CLOSED.
     =================================================
-            `);
-        }
-    }, 1000);
+                `);
+            }
+        }, 1000);
+    };
+
+    if (startupDelaySeconds > 0) {
+        console.log(`Waiting ${startupDelaySeconds} seconds for agent startup...`);
+        setTimeout(startCountdown, startupDelaySeconds * 1000);
+    } else {
+        startCountdown();
+    }
 }
 
 console.log('Scheduler started. Waiting for the next trading window.');
