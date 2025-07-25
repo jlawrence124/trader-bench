@@ -125,12 +125,6 @@ one has an edit or **Clear** control. If no run is active you can edit these
 values directly from the UI and optionally override the restriction with a
 checkbox. Quick controls let you buy or sell a single share of OKLO, reset the paper account, or fetch the latest quote for any symbol. Recent orders appear on a dedicated tab, and an "Overview" page summarizes equity, cash, buying power, total gain/loss, and day change with green/red styling. A placeholder tab for the future leaderboard is also included.
 
-### GitHub Codespaces
-
-This repo includes a `.devcontainer` folder so you can spin up a Codespace (or Dev Container) and run the dashboard entirely in the cloud. The container automatically installs dependencies and forwards port 3000. From a browser or mobile device you can start the UI with `npm run start:web`.
-
----
-
 ## API Capabilities
 
 The agent can interact with the MCP server using the following methods:
