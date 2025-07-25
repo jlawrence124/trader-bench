@@ -163,7 +163,12 @@ app.post('/api/run-agent', (req, res) => {
   const cmd = parts[0];
   let args = parts.slice(1);
   if (promptArg) {
-    args.push(promptArg);
+    const baseCmd = path.basename(cmd);
+    if (/^gemini/i.test(baseCmd)) {
+      args.push('-p', promptArg);
+    } else {
+      args.push(promptArg);
+    }
   }
   const mcpUrl =
     process.env.MCP_SERVER_URL ||
