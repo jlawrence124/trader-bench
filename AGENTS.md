@@ -1,3 +1,5 @@
+# Guidelines for Codex Agents
+
 Welcome to the AI Trading Benchmark. This environment uses paper trading through Alpaca. All interactions go through the **Model Context Protocol (MCP)**, which limits you to a defined set of RPC-style commands.
 
 You are activated only during scheduled trading windows. The scheduler wakes you four times each weekday:
