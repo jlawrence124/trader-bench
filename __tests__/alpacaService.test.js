@@ -3,16 +3,34 @@ const mockTradingGet = jest.fn();
 const mockTradingDelete = jest.fn();
 const mockMarketGet = jest.fn();
 
+// Mock opossum circuit breaker
+jest.mock('opossum', () => {
+  return jest.fn().mockImplementation((fn) => ({
+    fire: fn,
+    on: jest.fn()
+  }));
+});
+
 jest.mock('axios', () => ({
   create: jest
     .fn()
     .mockImplementationOnce(() => ({
       get: mockTradingGet,
       post: mockTradingPost,
-      delete: mockTradingDelete
+      delete: mockTradingDelete,
+      interceptors: {
+        response: {
+          use: jest.fn()
+        }
+      }
     }))
     .mockImplementationOnce(() => ({
-      get: mockMarketGet
+      get: mockMarketGet,
+      interceptors: {
+        response: {
+          use: jest.fn()
+        }
+      }
     }))
 }));
 
@@ -31,7 +49,7 @@ describe('alpacaService', () => {
       data: { quote: { bp: '10', ap: '11', bs: '1', as: '2', timestamp: '2023-01-01T00:00:00Z' } }
     });
     const data = await alpacaService.getMarketData('AAPL');
-    expect(mockMarketGet).toHaveBeenCalledWith('/stocks/AAPL/quotes/latest', { timeout: 5000, params: { feed: 'iex' } });
+    expect(mockMarketGet).toHaveBeenCalledWith('/stocks/AAPL/quotes/latest', { params: { feed: 'iex' } });
     expect(data).toMatchObject({ symbol: 'AAPL', bid: 10, ask: 11, bidSize: 1, askSize: 2 });
     expect(data.timestamp).toBeInstanceOf(Date);
   });
@@ -80,14 +98,14 @@ describe('alpacaService', () => {
   test('cancelAllOrders deletes all orders', async () => {
     mockTradingDelete.mockResolvedValue({ data: { status: 'canceled' } });
     const result = await alpacaService.cancelAllOrders();
-    expect(mockTradingDelete).toHaveBeenCalledWith('/v2/orders');
+    expect(mockTradingDelete).toHaveBeenCalledWith('/v2/orders', null);
     expect(result).toEqual({ status: 'canceled' });
   });
 
   test('closeAllPositions liquidates portfolio', async () => {
     mockTradingDelete.mockResolvedValue({ data: { status: 'closed' } });
     const result = await alpacaService.closeAllPositions();
-    expect(mockTradingDelete).toHaveBeenCalledWith('/v2/positions');
+    expect(mockTradingDelete).toHaveBeenCalledWith('/v2/positions', null);
     expect(result).toEqual({ status: 'closed' });
   });
 });

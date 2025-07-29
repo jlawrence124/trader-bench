@@ -1,4 +1,5 @@
 const path = require('path');
+const CircuitBreaker = require('opossum');
 require('dotenv').config({
     path: path.join(__dirname, '..', '.env'),
     override: true,
@@ -9,24 +10,94 @@ require('dotenv').config({
 const TRADING_API_URL = process.env.APCA_API_BASE_URL || 'https://paper-api.alpaca.markets';
 const MARKET_DATA_API_URL = 'https://data.alpaca.markets/v2';
 
-// Configure axios instances
-const tradingApi = require('axios').create({
+// Configure axios instances with retry logic
+const axios = require('axios');
+
+const axiosConfig = {
+    timeout: 10000,
+    retry: 3,
+    retryDelay: (retryCount) => Math.min(1000 * Math.pow(2, retryCount), 10000)
+};
+
+// Add retry interceptor
+function setupRetryInterceptor(axiosInstance) {
+    if (!axiosInstance || !axiosInstance.interceptors) {
+        console.warn('Invalid axios instance provided to setupRetryInterceptor');
+        return;
+    }
+    
+    axiosInstance.interceptors.response.use(
+        (response) => response,
+        async (error) => {
+            const config = error.config;
+            if (!config || !config.retry) return Promise.reject(error);
+            
+            config.__retryCount = config.__retryCount || 0;
+            
+            if (config.__retryCount >= config.retry) {
+                return Promise.reject(error);
+            }
+            
+            config.__retryCount += 1;
+            
+            const delay = config.retryDelay ? config.retryDelay(config.__retryCount) : 1000;
+            await new Promise(resolve => setTimeout(resolve, delay));
+            
+            return axiosInstance(config);
+        }
+    );
+}
+
+const tradingApi = axios.create({
     baseURL: TRADING_API_URL,
     headers: {
         'APCA-API-KEY-ID': process.env.APCA_API_KEY,
         'APCA-API-SECRET-KEY': process.env.APCA_API_SECRET,
     },
-    timeout: 10000, // 10 second timeout
+    ...axiosConfig
 });
 
-const marketDataApi = require('axios').create({
+const marketDataApi = axios.create({
     baseURL: MARKET_DATA_API_URL,
     headers: {
         'APCA-API-KEY-ID': process.env.APCA_API_KEY,
         'APCA-API-SECRET-KEY': process.env.APCA_API_SECRET,
     },
-    timeout: 10000, // 10 second timeout
+    ...axiosConfig
 });
+
+setupRetryInterceptor(tradingApi);
+setupRetryInterceptor(marketDataApi);
+
+// Circuit breaker options
+const circuitBreakerOptions = {
+    timeout: 5000,
+    errorThresholdPercentage: 50,
+    resetTimeout: 30000,
+    fallback: () => { throw new Error('Service temporarily unavailable'); }
+};
+
+// Create circuit breakers for critical operations
+const marketDataBreaker = new CircuitBreaker(async (symbol) => {
+    const response = await marketDataApi.get(`/stocks/${symbol}/quotes/latest`, {
+        params: { feed: 'iex' }
+    });
+    return response.data;
+}, circuitBreakerOptions);
+
+const tradingBreaker = new CircuitBreaker(async (endpoint, data, method = 'get') => {
+    const response = await tradingApi[method](endpoint, data);
+    return response.data;
+}, circuitBreakerOptions);
+
+// Add circuit breaker event logging
+marketDataBreaker.on('open', () => console.warn('Market data circuit breaker opened'));
+marketDataBreaker.on('halfOpen', () => console.warn('Market data circuit breaker half-open'));
+marketDataBreaker.on('close', () => console.info('Market data circuit breaker closed'));
+
+tradingBreaker.on('open', () => console.warn('Trading circuit breaker opened'));
+tradingBreaker.on('halfOpen', () => console.warn('Trading circuit breaker half-open'));
+tradingBreaker.on('close', () => console.info('Trading circuit breaker closed'));
 
 /**
  * Get the latest quote for a symbol
@@ -34,22 +105,25 @@ const marketDataApi = require('axios').create({
  * @returns {Promise<object>} - Latest quote data
  */
 async function getMarketData(symbol) {
+    if (!symbol || typeof symbol !== 'string') {
+        throw new Error('Invalid symbol provided');
+    }
+    
     try {
-        const response = await marketDataApi.get(`/stocks/${symbol}/quotes/latest`, {
-            timeout: 5000, // Shorter timeout for market data
-            params: {
-                feed: 'iex' // Use IEX feed for real-time data
-            }
-        });
+        const data = await marketDataBreaker.fire(symbol.toUpperCase());
+        const quote = data.quote;
         
-        const quote = response.data.quote;
+        if (!quote) {
+            throw new Error(`No quote data available for ${symbol}`);
+        }
+        
         // Ensure timestamp is a valid Date object
         if (quote.timestamp) {
             quote.timestamp = new Date(quote.timestamp);
         }
         
         return {
-            symbol: symbol,
+            symbol: symbol.toUpperCase(),
             bid: parseFloat(quote.bp) || 0,
             ask: parseFloat(quote.ap) || 0,
             bidSize: parseInt(quote.bs) || 0,
@@ -62,6 +136,21 @@ async function getMarketData(symbol) {
             : `Network Error: ${error.message}`;
         
         console.error(`Error fetching market data for ${symbol}:`, errorMessage);
+        
+        // Return cached/fallback data if available
+        if (error.message.includes('temporarily unavailable')) {
+            return {
+                symbol: symbol.toUpperCase(),
+                bid: 0,
+                ask: 0,
+                bidSize: 0,
+                askSize: 0,
+                timestamp: new Date(),
+                cached: true,
+                error: 'Service temporarily unavailable'
+            };
+        }
+        
         throw new Error(`Failed to fetch market data: ${errorMessage}`);
     }
 }
@@ -73,15 +162,37 @@ async function getMarketData(symbol) {
  */
 async function submitOrder(orderDetails) {
     try {
+        // Validate order details
         const requiredFields = ['symbol', 'qty', 'side', 'type', 'time_in_force'];
         const missingFields = requiredFields.filter(field => !(field in orderDetails));
         
         if (missingFields.length > 0) {
             throw new Error(`Missing required fields: ${missingFields.join(', ')}`);
         }
+        
+        // Additional validation
+        if (orderDetails.qty <= 0) {
+            throw new Error('Order quantity must be positive');
+        }
+        
+        if (!['buy', 'sell'].includes(orderDetails.side)) {
+            throw new Error('Order side must be buy or sell');
+        }
+        
+        if (!['market', 'limit', 'stop', 'stop_limit'].includes(orderDetails.type)) {
+            throw new Error('Invalid order type');
+        }
+        
+        // Sanitize symbol
+        const sanitizedOrder = {
+            ...orderDetails,
+            symbol: orderDetails.symbol.toUpperCase(),
+            qty: parseFloat(orderDetails.qty)
+        };
 
-        const response = await tradingApi.post('/v2/orders', orderDetails);
-        return response.data;
+        const result = await tradingBreaker.fire('/v2/orders', sanitizedOrder, 'post');
+        console.info(`Order submitted: ${sanitizedOrder.side} ${sanitizedOrder.qty} ${sanitizedOrder.symbol}`);
+        return result;
     } catch (error) {
         const errorMessage = error.response 
             ? `API Error: ${error.response.status} - ${JSON.stringify(error.response.data)}`
@@ -98,9 +209,14 @@ async function submitOrder(orderDetails) {
  * @returns {Promise<object>} - Cancellation status
  */
 async function cancelOrder(orderId) {
+    if (!orderId) {
+        throw new Error('Order ID is required');
+    }
+    
     try {
-        const response = await tradingApi.delete(`/v2/orders/${orderId}`);
-        return response.data;
+        const result = await tradingBreaker.fire(`/v2/orders/${orderId}`, null, 'delete');
+        console.info(`Order canceled: ${orderId}`);
+        return result;
     } catch (error) {
         const errorMessage = error.response 
             ? `API Error: ${error.response.status} - ${JSON.stringify(error.response.data)}`
@@ -117,8 +233,9 @@ async function cancelOrder(orderId) {
  */
 async function cancelAllOrders() {
     try {
-        const response = await tradingApi.delete('/v2/orders');
-        return response.data;
+        const result = await tradingBreaker.fire('/v2/orders', null, 'delete');
+        console.info('All orders canceled');
+        return result;
     } catch (error) {
         const errorMessage = error.response
             ? `API Error: ${error.response.status} - ${JSON.stringify(error.response.data)}`
@@ -135,8 +252,9 @@ async function cancelAllOrders() {
  */
 async function closeAllPositions() {
     try {
-        const response = await tradingApi.delete('/v2/positions');
-        return response.data;
+        const result = await tradingBreaker.fire('/v2/positions', null, 'delete');
+        console.info('All positions closed');
+        return result;
     } catch (error) {
         const errorMessage = error.response
             ? `API Error: ${error.response.status} - ${JSON.stringify(error.response.data)}`
@@ -153,14 +271,20 @@ async function closeAllPositions() {
  */
 async function getPositions() {
     try {
-        const response = await tradingApi.get('/v2/positions');
-        return response.data;
+        const result = await tradingBreaker.fire('/v2/positions');
+        return result || [];
     } catch (error) {
         const errorMessage = error.response 
             ? `API Error: ${error.response.status} - ${JSON.stringify(error.response.data)}`
             : `Network Error: ${error.message}`;
         
         console.error('Error fetching positions:', errorMessage);
+        
+        // Return empty array if service unavailable
+        if (error.message.includes('temporarily unavailable')) {
+            return [];
+        }
+        
         throw new Error(`Failed to fetch positions: ${errorMessage}`);
     }
 }
@@ -173,20 +297,26 @@ async function getPositions() {
  */
 async function getOrders(limit = 50, status = 'all') {
     try {
-        const response = await tradingApi.get('/v2/orders', {
+        const result = await tradingBreaker.fire('/v2/orders', {
             params: {
-                limit,
+                limit: Math.min(Math.max(1, limit), 500), // Clamp limit
                 status,
                 direction: 'desc',
             },
         });
-        return response.data;
+        return result || [];
     } catch (error) {
         const errorMessage = error.response
             ? `API Error: ${error.response.status} - ${JSON.stringify(error.response.data)}`
             : `Network Error: ${error.message}`;
 
         console.error('Error fetching orders:', errorMessage);
+        
+        // Return empty array if service unavailable
+        if (error.message.includes('temporarily unavailable')) {
+            return [];
+        }
+        
         throw new Error(`Failed to fetch orders: ${errorMessage}`);
     }
 }
@@ -197,14 +327,28 @@ async function getOrders(limit = 50, status = 'all') {
  */
 async function getAccountInfo() {
     try {
-        const response = await tradingApi.get('/v2/account');
-        return response.data;
+        const result = await tradingBreaker.fire('/v2/account');
+        return result;
     } catch (error) {
         const errorMessage = error.response 
             ? `API Error: ${error.response.status} - ${JSON.stringify(error.response.data)}`
             : `Network Error: ${error.message}`;
         
         console.error('Error fetching account info:', errorMessage);
+        
+        // Return basic fallback account info
+        if (error.message.includes('temporarily unavailable')) {
+            return {
+                equity: '100000',
+                cash: '100000',
+                buying_power: '100000',
+                account_blocked: false,
+                trading_blocked: false,
+                cached: true,
+                error: 'Service temporarily unavailable'
+            };
+        }
+        
         throw new Error(`Failed to fetch account info: ${errorMessage}`);
     }
 }

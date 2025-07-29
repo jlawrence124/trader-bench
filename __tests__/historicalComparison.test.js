@@ -3,16 +3,34 @@ const mockTradingGet = jest.fn();
 const mockTradingDelete = jest.fn();
 const mockMarketGet = jest.fn();
 
+// Mock opossum circuit breaker
+jest.mock('opossum', () => {
+  return jest.fn().mockImplementation((fn) => ({
+    fire: fn,
+    on: jest.fn()
+  }));
+});
+
 jest.mock('axios', () => ({
   create: jest
     .fn()
     .mockImplementationOnce(() => ({
       get: mockTradingGet,
       post: mockTradingPost,
-      delete: mockTradingDelete
+      delete: mockTradingDelete,
+      interceptors: {
+        response: {
+          use: jest.fn()
+        }
+      }
     }))
     .mockImplementationOnce(() => ({
-      get: mockMarketGet
+      get: mockMarketGet,
+      interceptors: {
+        response: {
+          use: jest.fn()
+        }
+      }
     }))
 }));
 

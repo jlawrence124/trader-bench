@@ -2,216 +2,387 @@
 
 This project provides a sandboxed environment for testing the performance of AI agents in a simulated stock trading scenario using paper money from [Alpaca](https://alpaca.markets/). It is designed to create a "black box" testing environment where the agent interacts with the market through a clearly defined API via Model Context Protocol, without access to the underlying benchmark infrastructure.
 
-## Architecture
+## 🏗️ Architecture
 
-The benchmark is composed of two main components that run independently:
+The benchmark uses a modern, enterprise-grade architecture with proper separation of concerns:
 
-1.  **MCP Server (`mcpHttpServer.js`)**: Exposes an HTTP RPC interface to Alpaca functions. Agents connect to this server using the shared `MCPClient` and no longer need to be spawned as child processes.
+### Core Components
 
-2.  **Scheduler (`scheduler.js`)**: This component acts as the "hypervisor" for the trading environment. It runs on a predefined schedule based on US market hours and announces "trading windows" during which the AI agent is expected to perform its tasks. This simulates real-world trading sessions.
+1. **MCP Server (`mcpHttpServer.js`)**: Secure HTTP RPC interface to Alpaca functions with rate limiting, circuit breakers, and comprehensive error handling.
 
-3.  **Trading Agent (`trading_agent/`)**: This is the isolated environment where the AI's trading logic resides. The agent uses the shared `mcpClient.js` module to communicate with the MCP Server but has no direct access to any other part of the benchmark's code. This ensures that the agent's performance is evaluated solely on its ability to interact with the provided API.
+2. **Scheduler (`schedulingService.js`)**: Production-ready scheduler with proper resource management, graceful shutdowns, and health monitoring.
 
----
-## Benchmark Flow
+3. **Web Dashboard (`webServer.js`)**: Secure Express server with compression, security headers, input validation, and comprehensive API endpoints.
 
-`startAll.js` acts as the master layer that launches the MCP server, the scheduler, and the web dashboard. The scheduler wakes up four times each weekday and grants the trading agent a **two-minute** window to act. During this window the agent may browse the web for research, check account status via MCP, and submit orders.
+4. **Trading Agent (`trading_agent/`)**: Isolated environment where AI trading logic resides, communicating via the shared `MCPClient`.
 
-Default schedule (Eastern Time):
+### Service Layer Architecture
 
-- **8:30 AM** – pre-market (one hour before open)
-- **9:30 AM** – market open
-- **12:00 PM** – midday
-- **3:55 PM** – five minutes before market close
+```
+src/
+├── services/          # Business logic layer
+│   ├── tradingService.js      # Trading operations with caching
+│   ├── schedulingService.js   # Agent scheduling and management  
+│   └── benchmarkService.js    # Performance analysis and reporting
+├── controllers/       # API request handling
+│   └── apiController.js       # RESTful API endpoints
+├── middleware/        # Cross-cutting concerns
+│   └── security.js           # Rate limiting, validation, sanitization
+└── database/         # Data persistence
+    └── database.js           # SQLite with proper schemas and indexes
+```
 
-After each run, the benchmark compares the portfolio gain against the S&P 500 (using the SPY ETF). The difference is saved to `data/runs.json` as that run's score.
+## 🚀 Benchmark Flow
 
-## Getting Started
+`startAll.js` launches the MCP server, scheduler, and web dashboard. The scheduler runs four times each weekday, granting the trading agent a **two-minute** window to act. During this window the agent may browse the web for research, check account status via MCP, and submit orders.
 
-### Prerequisites
+**Default Schedule (Eastern Time):**
+- **8:30 AM** – Pre-market (one hour before open)
+- **9:30 AM** – Market open
+- **12:00 PM** – Midday
+- **3:55 PM** – Five minutes before market close
 
-*   [Node.js](https://nodejs.org/) (v18 or later recommended)
-*   An [Alpaca paper trading account](https://app.alpaca.markets/signup) to get your API keys.
-
-### Installation
-
-1.  **Clone the repository:**
-    ```bash
-    git clone <repository-url>
-    cd bench_ai_spy
-    ```
-
-2.  **Install Benchmark Dependencies:**
-    Install the necessary packages for the server and scheduler.
-    ```bash
-    npm install
-    ```
-
-3.  **Configure Environment Variables:**
-    Create a `.env` file in the project root by copying the example file.
-    ```bash
-    cp .env.example .env
-    ```
-    Open the `.env` file and add your Alpaca API Key ID and Secret Key:
-    ```
-    APCA_API_KEY=YOUR_API_KEY
-    APCA_API_SECRET=YOUR_SECRET_KEY
-    ```
-
-4.  **Install Agent Dependencies:**
-    Navigate to the agent's directory and install its dependencies.
-    ```bash
-    cd trading_agent
-    npm install
-    cd ..
-    ```
+After each run, the benchmark compares portfolio performance against the S&P 500 (SPY ETF). Results are stored in a SQLite database with automatic backup to JSON files.
 
 ---
 
-## How to Run the Benchmark
+## 📋 Prerequisites
 
-The system traditionally requires two separate terminal sessions to run correctly.
+- [Node.js](https://nodejs.org/) v18 or later
+- [Alpaca paper trading account](https://app.alpaca.markets/signup) for API keys
+- 4GB+ RAM recommended for optimal performance
 
-**1. Terminal 1: Start the MCP Server**
-This server exposes an HTTP RPC interface for agents.
+---
+
+## ⚙️ Installation
+
+### 1. Clone and Setup
 ```bash
-npm start
-```
-You should see a message indicating the server is listening on a port.
-
-**2. Terminal 2: Start the Scheduler**
-This will trigger the trading windows at the scheduled times.
-```bash
-npm run start:scheduler
-```
-You should see the message: `Scheduler started. Waiting for the next trading window.`
-
-The scheduler now starts the agent process itself. Set `AGENT_CMD` to the CLI command for your model (defaults to the provided Node agent). The scheduler passes `MCP_SERVER_URL` so the agent can connect to the running server. Many CLIs start in interactive mode, so include your prompt in `AGENT_CMD` to run non-interactively. For example:
-
-```bash
-export AGENT_CMD="gemini -p trading_agent/prompt.txt"
-# or
-export AGENT_CMD='codex --full-auto "prompt goes here"'
+git clone <repository-url>
+cd bench_ai_spy
+npm install
 ```
 
-When launching from the dashboard, enter a prompt in the **Debug** tab before clicking **Run Agent** and it will be appended to `AGENT_CMD` as a single argument.
+### 2. Configure Environment
+```bash
+cp .env.example .env
+```
 
-**Convenience Command**
+Edit `.env` and add your Alpaca credentials:
+```bash
+APCA_API_KEY=YOUR_API_KEY
+APCA_API_SECRET=YOUR_SECRET_KEY
+# Optional: APCA_API_BASE_URL=https://paper-api.alpaca.markets
+```
 
-If you prefer to launch both processes from a single terminal, use the provided script:
+### 3. Install Agent Dependencies
+```bash
+cd trading_agent
+npm install
+cd ..
+```
 
+### 4. Run Tests (Optional)
+```bash
+npm test  # Verify installation
+```
+
+---
+
+## 🎯 Quick Start
+
+### Option 1: All-in-One (Recommended)
 ```bash
 npm run start:all
 ```
+This starts all services with proper process management and logging.
 
-This starts the HTTP MCP server and scheduler as child processes and forwards their output to the console.
-
-### Web Dashboard
-
-A simple React-based dashboard is available to view recent runs and logs. Start it with:
-
+### Option 2: Individual Services
 ```bash
+# Terminal 1: MCP Server
+npm start
+
+# Terminal 2: Scheduler  
+npm run start:scheduler
+
+# Terminal 3: Web Dashboard
 npm run start:web
 ```
 
+### Option 3: Web Dashboard Only
+```bash
+npm run start:web
+```
+Visit http://localhost:3000 to access the dashboard with full manual control.
 
-### GitHub Codespaces
+---
 
-This repo includes a `.devcontainer` folder so you can spin up a Codespace (or Dev Container) and run the dashboard entirely in the cloud. The container automatically installs dependencies and forwards port 3000. From a browser or mobile device you can start the UI with `npm run start:web`.
+## 🖥️ Web Dashboard Features
+
+The dashboard provides comprehensive control and monitoring:
+
+- **Recent Runs**: Performance analytics with interactive charts
+- **Overview**: Real-time account status and position monitoring  
+- **Logs**: Live log streaming with search and filtering
+- **Benchmark Control**: Start/stop benchmark runs with real-time status
+- **Positions**: Portfolio management with profit/loss tracking
+- **Orders**: Order history and management
+- **Debug**: Environment configuration and manual agent testing
 
 ---
 
 ## API Capabilities
 
-The agent can interact with the MCP server using the following methods:
+Enhanced MCP server provides these methods with improved reliability:
 
-*   `getCapabilities()`: Returns a list of available functions and any environmental limitations.
-    *   **Caveat**: The current environment **does not support options trading**.
-*   `getMarketData(symbol)`: Fetches the latest quote for a stock.
-*   `submitOrder(orderDetails)`: Submits a new order.
-*   `cancelOrder(orderId)`: Cancels an existing order.
-*   `getPositions()`: Retrieves a list of current positions.
-*   `getAccountInfo()`: Fetches account details.
-*   `getHistoricalBars(symbol, timeframe, start, end)`: Gets historical price data.
-*   `compareWithSP500(start, end)`: Returns portfolio gains alongside equivalent gains for the S&P 500 (via the SPY ETF) for the given period.
+### Core Trading Functions
+- `getCapabilities()`: Available functions and system limitations
+- `getMarketData(symbol)`: Real-time quotes with caching
+- `submitOrder(orderDetails)`: Order submission with validation
+- `cancelOrder(orderId)`: Individual order cancellation
+- `cancelAllOrders()`: Bulk order cancellation
+- `closeAllPositions()`: Portfolio liquidation
 
-## Developing Your Agent
+### Account & Data Functions  
+- `getAccountInfo()`: Account details with fallback data
+- `getPositions()`: Current positions with P&L
+- `getOrders(limit, status)`: Order history with filtering
+- `getHistoricalBars(symbol, timeframe, start, end)`: Historical data
+- `compareWithSP500(start, end)`: Performance benchmarking
 
-The logic for your AI agent should be implemented in the `trading_agent/agent.js` file. You can use the provided `MCPClient` to interact with the benchmark server. The `agent.js` file includes a basic example of how to fetch capabilities and market data.
+---
+
+## Agent Configuration
+Set `AGENT_CMD` for different AI models:
+```bash
+# Examples
+export AGENT_CMD="gemini -p trading_agent/prompt.txt"
+export AGENT_CMD="codex --full-auto 'Your trading prompt here'"
+export AGENT_CMD="claude -p 'Analyze market and make trades'"
+export AGENT_CMD="opencode run -q 'Trade based on market analysis'"
+```
 
 ---
 
 ## Project Structure
 
 ```
-.
-├── mcpHttpServer.js      # The main benchmark server
-├── scheduler.js          # Schedules the trading windows
-├── package.json          # Project dependencies and scripts
-├── .env.example          # Example environment file for Alpaca keys
-├── webServer.js          # Express server for the web dashboard
-├── frontend/             # Static files for the dashboard
-├── lib/
-│   ├── logger.js         # Server-side logging utility
-│   └── shared/
-│       └── mcpClient.js  # Shared client library for agent-server communication
-└── trading_agent/
-    ├── agent.js          # The AI agent's trading logic
-    ├── package.json      # The agent's own dependencies
-    └── lib/
-        └── logger.js     # Agent-specific logger factory
+bench_ai_spy/
+├── Core Services
+│   ├── mcpHttpServer.js          # Secure MCP server with circuit breakers
+│   ├── scheduler.js              # Production scheduler with cleanup
+│   ├── webServer.js              # Secure web server with middleware
+│   └── startAll.js               # Process orchestration
+├── Service Layer  
+│   └── src/
+│       ├── services/             # Business logic
+│       │   ├── tradingService.js     # Trading ops + caching
+│       │   ├── schedulingService.js  # Agent management  
+│       │   └── benchmarkService.js   # Performance analysis
+│       ├── controllers/          # API controllers
+│       │   └── apiController.js      # RESTful endpoints
+│       ├── middleware/           # Security & validation
+│       │   └── security.js           # Rate limiting, sanitization
+│       ├── database/             # Data persistence
+│       │   └── database.js           # SQLite with schemas
+│       └── alpacaService.js      # Enhanced Alpaca integration
+├── Data & Logging
+│   ├── data/                     # SQLite database + JSON backups
+│   ├── logs/                     # Structured application logs
+│   └── lib/                      # Shared utilities
+│       ├── logger.js                 # Async logging system
+│       ├── runLogger.js             # Database-backed run storage
+│       └── shared/
+│           └── mcpClient.js          # Enhanced MCP client
+├── Trading Agent
+│   └── trading_agent/
+│       ├── agent.js              # Your AI trading logic
+│       ├── logs/                 # Per-run agent logs
+│       └── lib/
+│           └── logger.js             # Agent logging factory
+├── Web Interface
+│   └── frontend/
+│       ├── index.html            # Dashboard UI
+│       └── script.js             # React-based interface
+└── Testing
+    └── __tests__/                # Comprehensive test suite
 ```
+
+---
 
 ## Configuration
 
 ### Environment Variables
 
-The `.env` file stores your Alpaca credentials. Copy `.env.example` and add your
-keys:
-
+**Core Configuration:**
 ```bash
-cp .env.example .env
+# Alpaca Trading (Required)
+APCA_API_KEY=your_api_key
+APCA_API_SECRET=your_secret_key
+APCA_API_BASE_URL=https://paper-api.alpaca.markets  # Optional
+
+# Server Configuration
+MCP_PORT=4000                    # MCP server port
+MCP_SERVER_URL=http://localhost:4000/rpc  # Auto-configured
+PORT=3000                        # Web dashboard port
+
+# Agent Configuration  
+AGENT_CMD=node trading_agent/agent.js    # Agent command
+MODEL_NAME=default_agent         # Run identification
+AGENT_STARTUP_DELAY=0           # Startup delay in seconds
+
+# Advanced Configuration
+SCHEDULER_HEALTH_PORT=3001      # Health check port
+NODE_ENV=development            # Environment mode
 ```
 
+**New Security Settings:**
+- Rate limits automatically applied
+- Environment access restricted to whitelisted variables
+- Input validation on all endpoints
+- Comprehensive audit logging enabled
+
+### Database Configuration
+
+The system automatically:
+- Creates SQLite database with optimized schema
+- Falls back to JSON files if database unavailable  
+- Runs maintenance tasks (VACUUM, ANALYZE)
+- Provides backup and recovery mechanisms
+
+### Logging System
+
+**Enhanced Logging:**
+- **Application**: `logs/trading_YYYY-MM-DD.log` (structured JSON)
+- **Agent Runs**: `trading_agent/logs/<runId>/` (per-run isolation)
+- **Database**: Run data stored with full audit trail
+- **Security**: All security events logged with context
+
+---
+
+## 🔧 Advanced Configuration
+
+### Trading Schedule Customization
+Modify `src/services/schedulingService.js`:
+```javascript
+tradingTimes: [
+    '30 8 * * 1-5',  // 8:30 AM EST (pre-market)
+    '30 9 * * 1-5',  // 9:30 AM EST (market open)  
+    '0 12 * * 1-5',  // 12:00 PM EST (midday)
+    '55 15 * * 1-5'  // 3:55 PM EST (near close)
+]
 ```
-APCA_API_KEY=YOUR_API_KEY
-APCA_API_SECRET=YOUR_SECRET_KEY
-# APCA_API_BASE_URL=https://paper-api.alpaca.markets
+
+### Performance Tuning
+```bash
+# Database optimization
+export NODE_OPTIONS="--max-old-space-size=4096"  # Increase memory
+
+# Caching configuration (in tradingService.js)
+this.cacheTimeout = 30000;  # Account data cache (30s)
+marketDataCache = 5000;     # Market data cache (5s)  
+ordersCache = 15000;        # Orders cache (15s)
 ```
 
-`APCA_API_BASE_URL` is optional if you need to point to a different Alpaca
-endpoint. The trading agent also accepts a `MODEL_NAME` variable. When set it is
-combined with the current date to create a run ID and all agent logs are written
-to `trading_agent/logs/<runId>/agent.log`.
+### Security Hardening
+Rate limits in `src/middleware/security.js`:
+```javascript
+apiLimiter: 100 requests / 15 minutes      # General API
+tradingLimiter: 10 requests / 1 minute     # Trading operations
+envUpdateLimiter: 5 requests / 5 minutes   # Environment updates
+```
 
-Additional variables:
+---
 
-- `MCP_PORT` sets the port for the HTTP server (default `4000`).
-- `MCP_SERVER_URL` defaults to `http://localhost:${MCP_PORT}/rpc` and normally doesn't need to be changed.
-- `AGENT_CMD` is the CLI command used to launch your agent (e.g. `gemini`, `codex`, `claude`, or `opencode`).
-- `MODEL_NAME` is inferred from `AGENT_CMD` when you save it and tags each run.
-- `AGENT_STARTUP_DELAY` waits this many seconds before the countdown begins so heavier agents can finish loading.
-- To avoid interactive mode with CLI agents, include your prompt in `AGENT_CMD`.
-  For example: `gemini -p trading_agent/prompt.txt` or
-  
-`codex --full-auto "prompt goes here"`.
-You can also POST `{ "prompt": "your text" }` to `/api/run-agent` to append the text
-as a single argument when launching from the dashboard.
+## 🏥 Health & Monitoring
 
-These variables can be inspected from the dashboard's **Debug** tab, which hides secret values unless you choose to reveal them. When the UI first loads it will prompt for any missing variables and you can continue anyway if you just want to explore.
+### Health Check Endpoints
+```bash
+# MCP Server Health
+curl http://localhost:4000/health
 
-### Logging Locations
+# Scheduler Health  
+curl http://localhost:3001/health
 
-Benchmark logs are written to `logs/trading_YYYY-MM-DD.log` in the project root.
-Each agent run writes to its own folder under `trading_agent/logs/`.
-The **Benchmark** tab automatically shows the most recent server and agent logs
-along with any `model_output.log` generated by the agent. Start a run from the
-dashboard to begin streaming these logs.
+# Web Server Status
+curl http://localhost:3000/api/run-status
+```
 
-### Adjusting Trading Windows
+### Performance Monitoring
+- Memory usage tracking
+- Process uptime monitoring  
+- Database query performance
+- API response times
+- Circuit breaker status
 
-Edit `scheduler.js` to change the trading schedule. The `tradingTimes` array
-holds cron expressions for window start times and `tradingWindowMinutes`
-controls how long each window stays open (default is two minutes).
-Set `AGENT_STARTUP_DELAY` if your agent needs extra time to load before the
-window timer begins.
+### Log Analysis
+```bash
+# View recent logs
+npm run logs
+
+# Database queries
+sqlite3 data/trading.db "SELECT * FROM runs ORDER BY start_date DESC LIMIT 10"
+
+# Performance metrics
+curl http://localhost:3000/api/runs/summary
+```
+
+---
+
+## 🐛 Troubleshooting
+
+### Common Issues
+
+**Database Connection:**
+```bash
+# Check database
+sqlite3 data/trading.db ".tables"
+
+# Reset database  
+rm data/trading.db && npm start
+```
+
+**Memory Issues:**
+```bash
+# Monitor memory
+curl http://localhost:3001/health | jq '.memory'
+
+# Increase Node.js memory
+export NODE_OPTIONS="--max-old-space-size=4096"
+```
+
+**API Rate Limits:**
+- Check dashboard Debug tab for rate limit status
+- Adjust limits in `src/middleware/security.js`
+- Monitor with `curl -I http://localhost:3000/api/account`
+
+**Agent Failures:**
+- Check `trading_agent/logs/<runId>/agent.log`
+- Verify `AGENT_CMD` configuration
+- Test manually: `npm run debug`
+
+### Support
+
+For issues:
+1. Check the logs in dashboard **Logs** tab
+2. Verify configuration in **Debug** tab  
+3. Run health checks on all services
+4. Review database integrity with provided tools
+
+---
+
+## Production Deployment
+
+### Recommended Setup
+```bash
+# Process management
+npm install -g pm2
+pm2 start ecosystem.config.js
+
+# Nginx reverse proxy (optional)
+sudo apt install nginx
+# Configure SSL and load balancing
+
+# Database backup
+crontab -e  # Add: 0 2 * * * /path/to/backup-script.sh
+```

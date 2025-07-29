@@ -1,4 +1,5 @@
-const fs = require('fs');
+const fs = require('fs').promises;
+const fsSync = require('fs');
 const path = require('path');
 const MCPClient = require('../lib/shared/mcpClient');
 const createAgentLogger = require('./lib/logger');
@@ -19,35 +20,89 @@ const logDir = path.join(__dirname, 'logs', runId);
 const tradesFile = path.join(logDir, 'trades.json');
 const modelOutputFile = path.join(logDir, 'model_output.log');
 
-if (!fs.existsSync(logDir)) {
-    fs.mkdirSync(logDir, { recursive: true });
+if (!fsSync.existsSync(logDir)) {
+    fsSync.mkdirSync(logDir, { recursive: true });
+}
+
+let tradeQueue = [];
+let outputQueue = [];
+let isProcessing = false;
+
+async function processTrades() {
+    if (isProcessing || tradeQueue.length === 0) return;
+    isProcessing = true;
+    
+    while (tradeQueue.length > 0) {
+        const entry = tradeQueue.shift();
+        try {
+            let arr = [];
+            try {
+                const data = await fs.readFile(tradesFile, 'utf8');
+                arr = JSON.parse(data);
+            } catch {}
+            
+            arr.push(entry);
+            await fs.writeFile(tradesFile, JSON.stringify(arr, null, 2));
+        } catch (error) {
+            console.error('Failed to write trade:', error);
+        }
+    }
+    isProcessing = false;
+}
+
+async function processOutput() {
+    if (outputQueue.length === 0) return;
+    
+    const texts = outputQueue.splice(0);
+    try {
+        await fs.appendFile(modelOutputFile, texts.join('\n') + '\n');
+    } catch (error) {
+        console.error('Failed to write model output:', error);
+    }
 }
 
 function appendTrade(entry) {
-    let arr = [];
-    if (fs.existsSync(tradesFile)) {
-        try { arr = JSON.parse(fs.readFileSync(tradesFile, 'utf8')); } catch {}
-    }
-    arr.push(entry);
-    fs.writeFileSync(tradesFile, JSON.stringify(arr, null, 2));
+    tradeQueue.push(entry);
+    setImmediate(() => processTrades());
 }
 
 function logModelOutput(text) {
-    fs.appendFileSync(modelOutputFile, text + '\n');
+    outputQueue.push(text);
+    setImmediate(() => processOutput());
 }
 // -----------------
 
 // Load the initial prompt to prime the model
-const promptPath = process.env.AGENT_PROMPT_PATH || path.join(__dirname, 'prompt.txt');
 let initialPrompt = '';
-try {
-    initialPrompt = fs.readFileSync(promptPath, 'utf8');
-    logger.info(`Initial prompt loaded from ${promptPath}`);
-    // Record the prompt in the model output log instead of stdout
-    logModelOutput(initialPrompt);
-} catch (err) {
-    logger.warn(`Failed to load prompt file at ${promptPath}: ${err.message}`);
+let promptPath = process.env.AGENT_PROMPT_PATH;
+
+async function loadPrompt() {
+    if (promptPath) {
+        try {
+            initialPrompt = await fs.readFile(promptPath, 'utf8');
+            logger.info(`Initial prompt loaded from ${promptPath}`);
+            return;
+        } catch (err) {
+            logger.warn(`Failed to load prompt file at ${promptPath}: ${err.message}. Falling back to AGENTS.md`);
+        }
+    }
+
+    try {
+        const agentsMdPath = path.join(__dirname, '..', 'AGENTS.md');
+        initialPrompt = await fs.readFile(agentsMdPath, 'utf8');
+        logger.info(`Initial prompt loaded from ${agentsMdPath}`);
+    } catch (err) {
+        logger.warn(`Failed to load prompt file at AGENTS.md: ${err.message}`);
+    }
 }
+
+// Load prompt asynchronously
+loadPrompt().then(() => {
+    if (initialPrompt) {
+        logModelOutput(initialPrompt);
+    }
+});
+
 
 const mcpClient = new MCPClient(logger);
 

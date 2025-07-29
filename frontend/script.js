@@ -9,6 +9,23 @@ const formatDateTime = (val) => {
 
 function App() {
     const [hasKeys, setHasKeys] = useState(null);
+    
+    // Load agent prompt from AGENTS.md
+    useEffect(() => {
+        const loadAgentPrompt = async () => {
+            try {
+                const response = await fetch('/AGENTS.md');
+                if (!response.ok) throw new Error('Failed to load AGENTS.md');
+                const content = await response.text();
+                setAgentPrompt(content);
+            } catch (error) {
+                console.error('Error loading AGENTS.md:', error);
+                setAgentPrompt('Error loading agent prompt. See console for details.');
+            }
+        };
+        
+        loadAgentPrompt();
+    }, []);
     const [apiKey, setApiKey] = useState('');
     const [apiSecret, setApiSecret] = useState('');
     const [runs, setRuns] = useState([]);
@@ -221,7 +238,7 @@ function App() {
         fetch('/api/run-agent', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ prompt: agentPrompt }),
+            body: JSON.stringify({ prompt: agentPrompt ? agentPrompt : 'hello' }),
         })
             .then(async (res) => {
                 const data = await res.json();
@@ -667,9 +684,9 @@ function App() {
                 <h1 className="text-2xl font-bold">AI Trading Dashboard</h1>
             </header>
 
-            <nav className="bg-gray-100 dark:bg-gray-800 shadow flex flex-wrap gap-2 sm:gap-4 px-4 py-2 justify-center sm:justify-start">
+            <nav className="bg-gray-100 dark:bg-gray-800 shadow flex flex-wrap gap-2 sm:gap-4 px-4 py-2 justify-center sm:justify-start sticky top-0 z-10">
                 <button
-                    className={`px-3 py-1 rounded ${
+                    className={`px-3 py-1 rounded transition-colors duration-200 ${
                         activeTab === 'runs'
                             ? 'bg-blue-500 text-white'
                             : 'bg-gray-200 dark:bg-gray-700 dark:text-gray-200'
@@ -679,7 +696,7 @@ function App() {
                     Recent Runs
                 </button>
                 <button
-                    className={`px-3 py-1 rounded ${
+                    className={`px-3 py-1 rounded transition-colors duration-200 ${
                         activeTab === 'overview'
                             ? 'bg-blue-500 text-white'
                             : 'bg-gray-200 dark:bg-gray-700 dark:text-gray-200'
@@ -689,7 +706,7 @@ function App() {
                     Overview
                 </button>
                 <button
-                    className={`px-3 py-1 rounded ${
+                    className={`px-3 py-1 rounded transition-colors duration-200 ${
                         activeTab === 'logs'
                             ? 'bg-blue-500 text-white'
                             : 'bg-gray-200 dark:bg-gray-700 dark:text-gray-200'
@@ -699,7 +716,7 @@ function App() {
                     Logs
                 </button>
                 <button
-                    className={`px-3 py-1 rounded ${
+                    className={`px-3 py-1 rounded transition-colors duration-200 ${
                         activeTab === 'benchmark'
                             ? 'bg-blue-500 text-white'
                             : 'bg-gray-200 dark:bg-gray-700 dark:text-gray-200'
@@ -709,7 +726,7 @@ function App() {
                     Benchmark
                 </button>
                 <button
-                    className={`px-3 py-1 rounded ${
+                    className={`px-3 py-1 rounded transition-colors duration-200 ${
                         activeTab === 'positions'
                             ? 'bg-blue-500 text-white'
                             : 'bg-gray-200 dark:bg-gray-700 dark:text-gray-200'
@@ -719,7 +736,7 @@ function App() {
                     Positions
                 </button>
                 <button
-                    className={`px-3 py-1 rounded ${
+                    className={`px-3 py-1 rounded transition-colors duration-200 ${
                         activeTab === 'orders'
                             ? 'bg-blue-500 text-white'
                             : 'bg-gray-200 dark:bg-gray-700 dark:text-gray-200'
@@ -729,7 +746,7 @@ function App() {
                     Orders
                 </button>
                 <button
-                    className={`px-3 py-1 rounded ${
+                    className={`px-3 py-1 rounded transition-colors duration-200 ${
                         activeTab === 'debug'
                             ? 'bg-blue-500 text-white'
                             : 'bg-gray-200 dark:bg-gray-700 dark:text-gray-200'
@@ -739,7 +756,7 @@ function App() {
                     Debug
                 </button>
                 <button
-                    className="px-3 py-1 rounded bg-gray-300 dark:bg-gray-700 text-gray-500"
+                    className="px-3 py-1 rounded transition-colors duration-200 bg-gray-300 dark:bg-gray-700 text-gray-500"
                     disabled
                 >
                     Leaderboard (Coming Soon)
@@ -748,6 +765,7 @@ function App() {
 
             {activeTab === 'runs' && (
                 <section className="p-4 flex-1 overflow-auto">
+                    <div className="bg-white dark:bg-gray-900 rounded-lg shadow p-4">
                     {expandedRun !== null && (
                         <div className="relative mb-4 grid grid-cols-1 md:grid-cols-2 gap-4">
                             <button
@@ -798,11 +816,7 @@ function App() {
                                     return (
                                         <tr
                                             key={i}
-                                            className={`hover:bg-indigo-50 dark:hover:bg-indigo-900 cursor-pointer ${
-                                                rowSelected
-                                                    ? 'bg-indigo-100 dark:bg-indigo-800'
-                                                    : ''
-                                            }`}
+                                            className={`odd:bg-gray-50 dark:odd:bg-gray-900 hover:bg-indigo-50 dark:hover:bg-indigo-900 cursor-pointer ${rowSelected ? 'bg-indigo-100 dark:bg-indigo-800' : ''}`}
                                             onClick={() =>
                                                 setExpandedRun(rowSelected ? null : i)
                                             }
@@ -830,11 +844,13 @@ function App() {
                             </tbody>
                         </table>
                     </div>
+                    </div>
                 </section>
             )}
 
             {activeTab === 'logs' && (
                 <section className="p-4 space-y-4 flex-1 overflow-auto">
+                    <div className="bg-white dark:bg-gray-900 rounded-lg shadow p-4 space-y-4">
                     <select
                         className="border rounded-md p-2 dark:border-gray-700 dark:bg-gray-800"
                         value={selectedLog}
@@ -854,15 +870,17 @@ function App() {
                     </button>
                     <pre
                         ref={logViewRef}
-                        className="bg-gray-100 dark:bg-gray-800 p-4 rounded-md h-96 overflow-auto whitespace-pre-wrap"
+                        className="bg-gray-100 dark:bg-gray-800 p-4 rounded-md h-96 overflow-auto whitespace-pre-wrap shadow"
                     >
                         {logContent}
                     </pre>
+                    </div>
                 </section>
             )}
 
             {activeTab === 'overview' && (
                 <section className="p-4 space-y-4 flex-1 overflow-auto">
+                    <div className="bg-white dark:bg-gray-900 rounded-lg shadow p-4 space-y-4">
                     <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 max-w-3xl mx-auto">
                         <div className="bg-white dark:bg-gray-800 rounded shadow p-4">
                             <h3 className="text-sm text-gray-500">Equity</h3>
@@ -918,11 +936,13 @@ function App() {
                     >
                         Refresh
                     </button>
+                    </div>
                 </section>
             )}
 
             {activeTab === 'benchmark' && (
                 <section className="p-4 space-y-4 flex-1 overflow-auto">
+                    <div className="bg-white dark:bg-gray-900 rounded-lg shadow p-4 space-y-4">
                     <button
                         className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-md"
                         onClick={startBenchmark}
@@ -946,16 +966,18 @@ function App() {
                         </button>
                         <pre
                             ref={logRef}
-                            className="bg-gray-100 dark:bg-gray-800 p-2 rounded-md h-60 overflow-auto whitespace-pre-wrap"
+                            className="bg-gray-100 dark:bg-gray-800 p-2 rounded-md h-60 overflow-auto whitespace-pre-wrap shadow"
                         >
                             {benchmarkLog}
                         </pre>
+                    </div>
                     </div>
                 </section>
             )}
 
             {activeTab === 'positions' && (
                 <section className="p-4 space-y-4 flex-1 overflow-auto">
+                    <div className="bg-white dark:bg-gray-900 rounded-lg shadow p-4 space-y-4">
                     {selectedPosition ? (
                         <div>
                             <button
@@ -1082,7 +1104,7 @@ function App() {
                                         {positions.map((p) => (
                                             <tr
                                                 key={p.symbol}
-                                                className="hover:bg-indigo-50 dark:hover:bg-indigo-900 cursor-pointer"
+                                                className="odd:bg-gray-50 dark:odd:bg-gray-900 hover:bg-indigo-50 dark:hover:bg-indigo-900 cursor-pointer"
                                                 onClick={() => setSelectedPosition(p)}
                                             >
                                                 <td className="p-1">{p.symbol}</td>
@@ -1100,11 +1122,13 @@ function App() {
                             </div>
                         </>
                     )}
+                    </div>
                 </section>
             )}
 
             {activeTab === 'orders' && (
                 <section className="p-4 space-y-2 flex-1 overflow-auto">
+                    <div className="bg-white dark:bg-gray-900 rounded-lg shadow p-4 space-y-2">
                     <button
                         className="mb-2 px-3 py-1 bg-blue-500 text-white rounded"
                         onClick={loadOrders}
@@ -1125,7 +1149,7 @@ function App() {
                             {orders.map((o) => (
                                 <tr
                                     key={o.id}
-                                    className="hover:bg-indigo-50 dark:hover:bg-indigo-900"
+                                    className="odd:bg-gray-50 dark:odd:bg-gray-900 hover:bg-indigo-50 dark:hover:bg-indigo-900"
                                 >
                                     <td className="p-1">{o.symbol}</td>
                                     <td className="p-1">{o.qty}</td>
@@ -1138,11 +1162,13 @@ function App() {
                             ))}
                         </tbody>
                     </table>
+                    </div>
                 </section>
             )}
 
             {activeTab === 'debug' && (
                 <section className="p-4 flex-1 overflow-auto space-y-2">
+                    <div className="bg-white dark:bg-gray-900 rounded-lg shadow p-4 space-y-2">
                     <label className="inline-flex items-center">
                         <input
                             type="checkbox"
@@ -1221,7 +1247,7 @@ function App() {
                         </thead>
                         <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
                             {envVars.map((v) => (
-                                <tr key={v.name}>
+                                <tr key={v.name} className="odd:bg-gray-50 dark:odd:bg-gray-900">
                                     <td className="p-2 font-mono">{v.name}</td>
                                     <td className="p-2">
                                         {editing[v.name] ? (
@@ -1304,6 +1330,7 @@ function App() {
                             ))}
                         </tbody>
                     </table>
+                    </div>
                 </section>
             )}
 
