@@ -1,7 +1,14 @@
 const fs = require('fs');
 const path = require('path');
 
-const DATA_DIR = process.env.DATA_DIR || path.join(__dirname, '..', 'data');
+// Resolve DATA_DIR robustly: if env provides a relative path, resolve it
+// relative to the server root (one level up from this file). Defaults to
+// `<repo>/server/data` when unset.
+const SERVER_ROOT = path.join(__dirname, '..');
+const ENV_DATA_DIR = process.env.DATA_DIR;
+const DATA_DIR = ENV_DATA_DIR
+  ? (path.isAbsolute(ENV_DATA_DIR) ? ENV_DATA_DIR : path.resolve(SERVER_ROOT, ENV_DATA_DIR))
+  : path.join(SERVER_ROOT, 'data');
 if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
 
 const LOG_FILE = path.join(DATA_DIR, 'event-log.jsonl');
@@ -52,4 +59,3 @@ module.exports = {
   readRecentLogs,
   DATA_DIR,
 };
-

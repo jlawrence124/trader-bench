@@ -183,8 +183,8 @@ function setupWindowScheduler() {
   // Clear any existing timers
   for (const t of windowTimers) clearTimeout(t);
   windowTimers = scheduleToday(
-    (w) => { logEvent('window.open', { window: w }); emitWindowPreamble(w); },
-    (w) => logEvent('window.close', { window: w })
+    (w) => { logEvent('window.open', { window: w }); emitWindowPreamble(w); startAgentIfConfigured(w); },
+    (w) => { stopAgent('window.close', w); logEvent('window.close', { window: w }); }
   );
 }
 
@@ -208,7 +208,13 @@ function startPollers() {
 
 // Start server
 const PORT = parseInt(process.env.PORT || '8787', 10);
-app.listen(PORT, () => {
+const http = require('http');
+const httpServer = http.createServer(app);
+// If port is already in use, log and continue so MCP can still run on stdio
+httpServer.on('error', (err) => {
+  try { logEvent('server.listen.error', { port: PORT, error: String(err && (err.message || err)) }); } catch {}
+});
+httpServer.listen(PORT, () => {
   logEvent('server.start', { port: PORT, windows: parseWindowsFromEnv() });
   setupWindowScheduler();
   startPollers();
@@ -235,6 +241,7 @@ function readDebugConfig() {
     sandbox: false,
     agent: process.env.AGENT || 'CodexCLI',
     agentStartCommand: process.env.AGENT_START_CMD || '',
+    agentAutoStart: String(process.env.AGENT_AUTO_START || 'false') === 'true',
   };
   if (!fs.existsSync(DEBUG_FILE)) return defaults;
   try { return { ...defaults, ...JSON.parse(fs.readFileSync(DEBUG_FILE, 'utf8')) }; } catch { return defaults; }
@@ -259,6 +266,7 @@ app.put('/api/debug/config', (req, res) => {
     sandbox: Boolean(body.sandbox ?? debugConfig.sandbox),
     agent: body.agent || debugConfig.agent,
     agentStartCommand: body.agentStartCommand ?? debugConfig.agentStartCommand,
+    agentAutoStart: Boolean(body.agentAutoStart ?? debugConfig.agentAutoStart),
   };
   writeDebugConfig(debugConfig);
   // Apply overrides for scheduler and symbol
@@ -302,6 +310,49 @@ function emitWindowPreamble(w) {
   } catch {}
 }
 
+// Optionally auto-start an external agent process when a window opens
+let agentProc = null;
+function startAgentIfConfigured(w) {
+  try {
+    if (agentProc) return; // already running
+    if (!debugConfig.agentAutoStart) return;
+    const cmd = String(debugConfig.agentStartCommand || '').trim();
+    if (!cmd) return;
+    const { spawn } = require('node:child_process');
+    const proc = spawn(cmd, { shell: true, stdio: ['ignore', 'pipe', 'pipe'] });
+    agentProc = proc;
+    logEvent('agent.started', { pid: proc.pid, command: cmd, window: w });
+    proc.stdout.on('data', (chunk) => {
+      const text = chunk.toString();
+      text.split(/\r?\n/).forEach((line) => { if (line.trim()) logEvent('agent.stdout', { line }); });
+    });
+    proc.stderr.on('data', (chunk) => {
+      const text = chunk.toString();
+      text.split(/\r?\n/).forEach((line) => { if (line.trim()) logEvent('agent.stderr', { line }); });
+    });
+    proc.on('close', (code, signal) => {
+      logEvent('agent.exited', { code, signal });
+      agentProc = null;
+    });
+  } catch (e) {
+    logEvent('agent.start.error', { error: String(e.message || e) });
+  }
+}
+
+function stopAgent(reason, w) {
+  try {
+    if (!agentProc) return;
+    const p = agentProc;
+    agentProc = null;
+    logEvent('agent.stopping', { pid: p.pid, reason, window: w });
+    // Try graceful stop
+    try { p.kill('SIGINT'); } catch {}
+    setTimeout(() => { try { p.kill('SIGTERM'); } catch {} }, 1500);
+  } catch (e) {
+    logEvent('agent.stop.error', { error: String(e.message || e) });
+  }
+}
+
 app.post('/api/debug/placeOrder', async (req, res) => {
   try {
     const { symbol, side, quantity, note, force, dryRun } = req.body || {};
@@ -339,7 +390,20 @@ app.post('/api/debug/run-once', (req, res) => {
   const startDate = new Date(start);
   const endDate = new Date(end);
   const now = Date.now();
-  setTimeout(() => { logEvent('window.open', { window: { id: 'adhoc', start, end } }); emitWindowPreamble({ id: 'adhoc', start, end }); }, Math.max(0, startDate.getTime() - now));
-  setTimeout(() => { logEvent('window.close', { window: { id: 'adhoc', start, end } }); clearAdhocWindow(); }, Math.max(0, endDate.getTime() - now));
+  setTimeout(() => {
+    const w = { id: 'adhoc', start, end };
+    logEvent('window.open', { window: w });
+    emitWindowPreamble(w);
+    startAgentIfConfigured(w);
+  }, Math.max(0, startDate.getTime() - now));
+  setTimeout(() => {
+    const w = { id: 'adhoc', start, end };
+    stopAgent('adhoc.close', w);
+    logEvent('window.close', { window: w });
+    clearAdhocWindow();
+  }, Math.max(0, endDate.getTime() - now));
   res.json({ ok: true, start, end, durationMinutes: duration });
 });
+
+// Danger: Start-fresh reset endpoint (gated)
+// (Reset endpoint removed; full paper account reset not supported via Alpaca API)

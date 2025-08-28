@@ -18,7 +18,7 @@ export default function ConfigPanel() {
   const onSave = async () => {
     setSaving(true)
     try {
-      const updated = await fetchJson('/api/debug/config', { method: 'PUT', body: JSON.stringify({ agent: cfg.agent, agentStartCommand: cfg.agentStartCommand || '' }) })
+      const updated = await fetchJson('/api/debug/config', { method: 'PUT', body: JSON.stringify({ agent: cfg.agent, agentStartCommand: cfg.agentStartCommand || '', agentAutoStart: !!cfg.agentAutoStart }) })
       setCfg(updated)
       setSavedAt(new Date())
     } catch (e) {
@@ -51,6 +51,10 @@ export default function ConfigPanel() {
               value={cfg.agentStartCommand || ''}
               onChange={e=>setCfg({...cfg, agentStartCommand: e.target.value})}
             />
+          </label>
+          <label className="flex items-center gap-2 md:col-span-3">
+            <input type="checkbox" checked={!!cfg.agentAutoStart} onChange={e=>setCfg({...cfg, agentAutoStart: e.target.checked})} />
+            <span className="muted text-sm">Auto-start agent process on window open and stop on close</span>
           </label>
         </div>
         <div className="mt-4 flex items-center gap-3">

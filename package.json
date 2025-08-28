@@ -13,7 +13,7 @@
     "mcp": "npm run mcp -w server",
     "web": "npm run dev -w web",
     "build": "npm run build -w server && npm run build -w web",
-    "start": "npm run start -w server"
+    "start": "npm run start -w server",
+    "agent:gemini": "bash -lc 'gemini -m \"${AGENT_MODEL:-gemini-2.5-pro}\" -p \"$(cat ${AGENT_PROMPT_FILE:-agent/prompt.md})\"'"
   }
 }
-

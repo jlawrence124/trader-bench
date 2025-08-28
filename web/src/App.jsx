@@ -64,6 +64,9 @@ export default function App() {
       try {
         const e = JSON.parse(ev.data)
         setLogs(prev => [...prev, e])
+        if (e?.type === 'window.open' && (e.window?.id === 'adhoc')) {
+          setTab('dashboard')
+        }
       } catch {}
     }
     return () => sse.close()
