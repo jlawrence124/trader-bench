@@ -1,0 +1,16 @@
+# Node
+node_modules/
+.env
+server/.env
+.DS_Store
+dist/
+build/
+
+# Logs/data
+server/data/*.jsonl
+server/data/*.log
+server/data/equity.jsonl
+server/data/benchmark.jsonl
+
+# Vite
+web/dist

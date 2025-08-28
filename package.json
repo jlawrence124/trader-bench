@@ -1,0 +1,19 @@
+{
+  "name": "trader-bench",
+  "private": true,
+  "version": "0.1.0",
+  "description": "AI trading benchmark with MCP server and React dashboard",
+  "workspaces": [
+    "server",
+    "web"
+  ],
+  "scripts": {
+    "dev": "npm run dev -w server",
+    "backend": "npm run dev -w server",
+    "mcp": "npm run mcp -w server",
+    "web": "npm run dev -w web",
+    "build": "npm run build -w server && npm run build -w web",
+    "start": "npm run start -w server"
+  }
+}
+
