@@ -7,7 +7,7 @@ dist/
 build/
 
 # Logs/data
-server/data/
+server/data/*
 
 # Vite
 web/dist
