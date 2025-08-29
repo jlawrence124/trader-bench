@@ -7,10 +7,7 @@ dist/
 build/
 
 # Logs/data
-server/data/*.jsonl
-server/data/*.log
-server/data/equity.jsonl
-server/data/benchmark.jsonl
+server/data/
 
 # Vite
 web/dist
