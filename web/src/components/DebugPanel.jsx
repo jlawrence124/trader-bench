@@ -23,6 +23,9 @@ export default function DebugPanel({ onEvent }) {
     const [scratchTags, setScratchTags] = useState('');
     const [runOnceDur, setRunOnceDur] = useState(4);
     const [runOnceInfo, setRunOnceInfo] = useState(null);
+    const [confirmClearLogs, setConfirmClearLogs] = useState('');
+    const [confirmClearScratch, setConfirmClearScratch] = useState('');
+    const [confirmClearBoth, setConfirmClearBoth] = useState('');
 
     useEffect(() => {
         (async () => {
@@ -111,6 +114,53 @@ export default function DebugPanel({ onEvent }) {
             setResult('Logged');
             setResultObj(r);
             onEvent?.(r);
+        } catch (e) {
+            setResult(String(e));
+        }
+    };
+
+    const doClearLogs = async () => {
+        try {
+            const r = await fetchJson('/api/debug/clear-logs', {
+                method: 'POST',
+                body: JSON.stringify({ confirm: confirmClearLogs }),
+            });
+            setResult(JSON.stringify(r, null, 2));
+            setResultObj(r);
+            setConfirmClearLogs('');
+        } catch (e) {
+            setResult(String(e));
+        }
+    };
+
+    const doClearScratch = async () => {
+        try {
+            // Gate with local confirm only; server endpoint is ungated
+            if (confirmClearScratch.toUpperCase() !== 'CLEAR') {
+                setResult('Type CLEAR to confirm');
+                return;
+            }
+            const r = await fetchJson('/api/scratchpad', { method: 'DELETE' });
+            setResult(JSON.stringify(r, null, 2));
+            setResultObj(r);
+            setConfirmClearScratch('');
+        } catch (e) {
+            setResult(String(e));
+        }
+    };
+
+    const doClearBoth = async () => {
+        try {
+            if (confirmClearBoth.toUpperCase() !== 'CLEAR') {
+                setResult('Type CLEAR to confirm');
+                return;
+            }
+            const a = await fetchJson('/api/debug/clear-logs', { method: 'POST', body: JSON.stringify({ confirm: 'CLEAR' }) });
+            const b = await fetchJson('/api/scratchpad', { method: 'DELETE' });
+            const summary = { ok: true, cleared: ['logs', 'scratchpad'], logs: a, scratchpad: b };
+            setResult(JSON.stringify(summary, null, 2));
+            setResultObj(summary);
+            setConfirmClearBoth('');
         } catch (e) {
             setResult(String(e));
         }
@@ -423,6 +473,81 @@ export default function DebugPanel({ onEvent }) {
                 <div className="muted text-xs mt-2">
                     This immediately opens a temporary ad-hoc trading window. MCP buy/sell
                     tools will be allowed until it closes.
+                </div>
+            </div>
+
+            <div className="card">
+                <div className="text-sm text-red-700 dark:text-red-400 mb-2">Clear Agent Logs</div>
+                <div className="muted text-xs mb-3">Deletes all events from the local log file. This only affects local benchmarking data and does not touch your brokerage account.</div>
+                <div className="grid md:grid-cols-3 gap-4 items-end">
+                    <label className="block md:col-span-2">
+                        <div className="muted text-xs mb-1">Type CLEAR to confirm</div>
+                        <input
+                            className="w-full rounded border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 px-3 py-2 title"
+                            value={confirmClearLogs}
+                            onChange={(e)=>setConfirmClearLogs(e.target.value)}
+                            placeholder="CLEAR"
+                        />
+                    </label>
+                    <div className="flex gap-3">
+                        <button
+                            onClick={doClearLogs}
+                            disabled={confirmClearLogs.toUpperCase() !== 'CLEAR'}
+                            className={`px-3 py-2 rounded ${confirmClearLogs.toUpperCase()==='CLEAR' ? 'bg-red-600 text-white' : 'border border-slate-300 dark:border-slate-600 title'}`}
+                        >
+                            Clear Logs
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <div className="card">
+                <div className="text-sm text-red-700 dark:text-red-400 mb-2">Clear Scratchpad</div>
+                <div className="muted text-xs mb-3">Deletes all scratchpad notes stored locally for window-to-window handoff.</div>
+                <div className="grid md:grid-cols-3 gap-4 items-end">
+                    <label className="block md:col-span-2">
+                        <div className="muted text-xs mb-1">Type CLEAR to confirm</div>
+                        <input
+                            className="w-full rounded border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 px-3 py-2 title"
+                            value={confirmClearScratch}
+                            onChange={(e)=>setConfirmClearScratch(e.target.value)}
+                            placeholder="CLEAR"
+                        />
+                    </label>
+                    <div className="flex gap-3">
+                        <button
+                            onClick={doClearScratch}
+                            disabled={confirmClearScratch.toUpperCase() !== 'CLEAR'}
+                            className={`px-3 py-2 rounded ${confirmClearScratch.toUpperCase()==='CLEAR' ? 'bg-red-600 text-white' : 'border border-slate-300 dark:border-slate-600 title'}`}
+                        >
+                            Clear Scratchpad
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <div className="card">
+                <div className="text-sm text-red-700 dark:text-red-400 mb-2">Clear Logs + Scratchpad</div>
+                <div className="muted text-xs mb-3">Deletes both the agent logs and scratchpad notes.</div>
+                <div className="grid md:grid-cols-3 gap-4 items-end">
+                    <label className="block md:col-span-2">
+                        <div className="muted text-xs mb-1">Type CLEAR to confirm</div>
+                        <input
+                            className="w-full rounded border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 px-3 py-2 title"
+                            value={confirmClearBoth}
+                            onChange={(e)=>setConfirmClearBoth(e.target.value)}
+                            placeholder="CLEAR"
+                        />
+                    </label>
+                    <div className="flex gap-3">
+                        <button
+                            onClick={doClearBoth}
+                            disabled={confirmClearBoth.toUpperCase() !== 'CLEAR'}
+                            className={`px-3 py-2 rounded ${confirmClearBoth.toUpperCase()==='CLEAR' ? 'bg-red-600 text-white' : 'border border-slate-300 dark:border-slate-600 title'}`}
+                        >
+                            Clear Both
+                        </button>
+                    </div>
                 </div>
             </div>
 

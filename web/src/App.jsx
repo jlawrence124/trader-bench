@@ -63,7 +63,10 @@ export default function App() {
     sse.onmessage = (ev) => {
       try {
         const e = JSON.parse(ev.data)
-        setLogs(prev => [...prev, e])
+        setLogs(prev => {
+          if (e?.type === 'logs.cleared') return [e]
+          return [...prev, e]
+        })
         if (e?.type === 'window.open' && (e.window?.id === 'adhoc')) {
           setTab('dashboard')
         }

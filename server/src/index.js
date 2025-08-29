@@ -24,17 +24,24 @@ function getAlpaca() {
 const EQUITY_FILE = path.join(DATA_DIR, 'equity.jsonl');
 const BENCH_FILE = path.join(DATA_DIR, 'benchmark.jsonl');
 const SCRATCH_FILE = path.join(DATA_DIR, 'scratchpad.jsonl');
+const LOG_FILE = path.join(DATA_DIR, 'event-log.jsonl');
 const BENCH_SYMBOL = process.env.BENCHMARK_SYMBOL || 'SPY';
 
 function appendJsonl(file, obj) {
   try { fs.appendFileSync(file, JSON.stringify(obj) + '\n'); } catch {}
 }
 
-function readSeries(file, limit = 2000) {
+function readSeries(file, limit) {
   if (!fs.existsSync(file)) return [];
-  const lines = fs.readFileSync(file, 'utf8').trim().split('\n');
-  const slice = lines.slice(Math.max(0, lines.length - limit));
-  return slice.map(l => { try { return JSON.parse(l); } catch { return null; } }).filter(Boolean);
+  const raw = fs.readFileSync(file, 'utf8').trim();
+  if (!raw) return [];
+  const lines = raw.split('\n');
+  let selected = lines;
+  // If a finite numeric limit is provided, return the last N lines; otherwise return all
+  if (typeof limit === 'number' && isFinite(limit)) {
+    selected = lines.slice(Math.max(0, lines.length - limit));
+  }
+  return selected.map(l => { try { return JSON.parse(l); } catch { return null; } }).filter(Boolean);
 }
 
 function readJsonl(file, limit = 500) {
@@ -46,9 +53,9 @@ function readJsonl(file, limit = 500) {
 
 function toDate(ts) { return new Date(ts).getTime(); }
 
-function buildNormalizedSeries() {
-  const equity = readSeries(EQUITY_FILE);
-  const bench = readSeries(BENCH_FILE);
+function buildNormalizedSeries(limit) {
+  const equity = readSeries(EQUITY_FILE, limit);
+  const bench = readSeries(BENCH_FILE, limit);
 
   // If we have no benchmark yet, we can't build a normalized SPY series
   if (!bench.length) {
@@ -122,16 +129,19 @@ app.get('/api/logs', (req, res) => {
 });
 
 app.get('/api/equity', (req, res) => {
-  res.json(readSeries(EQUITY_FILE));
+  const limit = (req.query && Number(req.query.limit));
+  res.json(readSeries(EQUITY_FILE, Number.isFinite(limit) ? limit : undefined));
 });
 
 app.get('/api/benchmark', (req, res) => {
-  res.json(readSeries(BENCH_FILE));
+  const limit = (req.query && Number(req.query.limit));
+  res.json(readSeries(BENCH_FILE, Number.isFinite(limit) ? limit : undefined));
 });
 
 app.get('/api/metrics', (req, res) => {
-  const equity = readSeries(EQUITY_FILE);
-  const bench = readSeries(BENCH_FILE);
+  const limit = (req.query && Number(req.query.limit));
+  const equity = readSeries(EQUITY_FILE, Number.isFinite(limit) ? limit : undefined);
+  const bench = readSeries(BENCH_FILE, Number.isFinite(limit) ? limit : undefined);
   let equityRet = 0, benchRet = 0;
   if (equity.length >= 2) equityRet = (equity[equity.length-1].value / equity[0].value) - 1;
   if (bench.length >= 2) benchRet = (bench[bench.length-1].value / bench[0].value) - 1;
@@ -147,7 +157,8 @@ app.get('/api/metrics', (req, res) => {
 
 // Normalized USD series for charting (SPY scaled to starting equity)
 app.get('/api/series', (req, res) => {
-  res.json(buildNormalizedSeries());
+  const limit = (req.query && Number(req.query.limit));
+  res.json(buildNormalizedSeries(Number.isFinite(limit) ? limit : undefined));
 });
 
 // Scratchpad endpoints (agent notes for next window)
@@ -183,7 +194,7 @@ function setupWindowScheduler() {
   // Clear any existing timers
   for (const t of windowTimers) clearTimeout(t);
   windowTimers = scheduleToday(
-    (w) => { logEvent('window.open', { window: w }); emitWindowPreamble(w); startAgentIfConfigured(w); },
+    (w) => { logEvent('window.open', { window: w }); startAgentIfConfigured(w); },
     (w) => { stopAgent('window.close', w); logEvent('window.close', { window: w }); }
   );
 }
@@ -292,23 +303,7 @@ app.post('/api/debug/checkPrice', async (req, res) => {
   } catch (e) { res.status(500).json({ error: String(e.message || e) }); }
 });
 
-// Emit a short preamble and optional agent start command when windows open
-function emitWindowPreamble(w) {
-  try {
-    const goal = `Trading window open (${w.id}). Goal: evaluate current positions, check opportunities, and place risk-aware market orders only if conviction is high. Use MCP tools (viewPortfolio, checkPrice, buyShares, sellShares). Keep notes via addScratchpad.`;
-    const info = {
-      window: w,
-      agent: debugConfig.agent,
-      benchmarkSymbol: process.env.BENCHMARK_SYMBOL || 'SPY',
-      feed: (process.env.ALPACA_DATA_FEED || 'iex'),
-      durationMinutes: debugConfig.windowDurationMinutes,
-    };
-    logEvent('agent.preamble', { message: goal, info });
-    if (debugConfig.agentStartCommand && String(debugConfig.agentStartCommand).trim().length) {
-      logEvent('agent.start.suggested', { command: debugConfig.agentStartCommand, agent: debugConfig.agent, window: w });
-    }
-  } catch {}
-}
+// Removed agent preamble emission; initial prompt should cover guidance
 
 // Optionally auto-start an external agent process when a window opens
 let agentProc = null;
@@ -382,6 +377,17 @@ app.post('/api/debug/log', (req, res) => {
   res.json(ev);
 });
 
+// Clear all event logs (gated via confirm string)
+app.post('/api/debug/clear-logs', (req, res) => {
+  const { confirm } = req.body || {};
+  if (String(confirm || '').toUpperCase() !== 'CLEAR') {
+    return res.status(400).json({ error: 'Confirmation required. Type "CLEAR" to proceed.' });
+  }
+  try { if (fs.existsSync(LOG_FILE)) fs.unlinkSync(LOG_FILE); } catch {}
+  const ev = logEvent('logs.cleared', {});
+  res.json({ ok: true, event: ev });
+});
+
 // Initiate a one-off trading window run now (opens immediately for N minutes)
 app.post('/api/debug/run-once', (req, res) => {
   const duration = Number((req.body && req.body.durationMinutes) || process.env.WINDOW_DURATION_MINUTES || 4);
@@ -393,7 +399,6 @@ app.post('/api/debug/run-once', (req, res) => {
   setTimeout(() => {
     const w = { id: 'adhoc', start, end };
     logEvent('window.open', { window: w });
-    emitWindowPreamble(w);
     startAgentIfConfigured(w);
   }, Math.max(0, startDate.getTime() - now));
   setTimeout(() => {
