@@ -105,6 +105,22 @@ async function placeOrder(client, { symbol, qty, side }) {
   };
 }
 
+async function getOpenOrders(client) {
+  const orders = await httpsJson('GET', `${client.base}/v2/orders?status=open&limit=50`, client.headers);
+  const arr = Array.isArray(orders) ? orders : [];
+  return arr.map(o => ({
+    id: o.id,
+    symbol: o.symbol,
+    side: o.side,
+    qty: Number(o.qty || o.quantity || 0),
+    status: o.status,
+    submittedAt: o.submitted_at || o.submittedAt,
+    filledQty: Number(o.filled_qty || o.filledQty || 0),
+    type: o.type,
+    timeInForce: o.time_in_force || o.timeInForce,
+  }));
+}
+
 async function fetchYahooPrice(symbol) {
   const url = `https://query1.finance.yahoo.com/v7/finance/quote?symbols=${encodeURIComponent(symbol)}`;
   const res = await fetch(url, { headers: { 'User-Agent': 'trader-bench/0.1' } });
@@ -178,4 +194,4 @@ async function getLatestPrice(client, symbol) {
   throw new Error(`Price lookup failed for ${symbol}. Attempts: ${attempts.join(', ')}`);
 }
 
-module.exports = { createClient, getAccount, getPositions, placeOrder, getLatestPrice };
+module.exports = { createClient, getAccount, getPositions, placeOrder, getLatestPrice, getOpenOrders };
