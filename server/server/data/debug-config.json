@@ -1,9 +1,0 @@
-{
-  "timezone": "America/New_York",
-  "tradingWindows": "08:00,09:31,12:00,15:55",
-  "windowDurationMinutes": 4,
-  "benchmarkSymbol": "SPY",
-  "tradingEnabled": true,
-  "sandbox": false,
-  "agent": "CodexCLI"
-}
