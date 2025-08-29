@@ -1,8 +1,8 @@
 const { StdioServerTransport } = require('@modelcontextprotocol/sdk/server/stdio.js');
 const { McpServer } = require('@modelcontextprotocol/sdk/server/mcp.js');
 const { z } = require('zod');
-const { createClient, getAccount, getPositions, placeOrder, getLatestPrice } = require('./alpaca');
-const { isWithinTradingWindow } = require('./scheduler');
+const { createClient, getAccount, getPositions, placeOrder, getLatestPrice, getOpenOrders } = require('./alpaca');
+const { isWithinTradingWindow, isWithinMarketHours } = require('./scheduler');
 const { logEvent, DATA_DIR } = require('./log');
 const path = require('path');
 const fs = require('fs');
@@ -33,13 +33,13 @@ async function startMcpServer({ name, description }) {
     return { content: [{ type: 'text', text: JSON.stringify(result) }] };
   });
 
-  server.tool('buyShares', 'Place a market buy order (paper trading only). Only allowed during trading windows.', {
+  server.tool('buyShares', 'Place a market buy order (paper trading only). Allowed during trading windows or regular market hours.', {
     symbol: z.string(),
     quantity: z.number().int().min(1),
     note: z.string().optional(),
   }, async ({ symbol, quantity, note }) => {
-    if (!isWithinTradingWindow()) {
-      const err = { error: 'Trading not allowed outside configured windows' };
+    if (!(isWithinTradingWindow() || isWithinMarketHours())) {
+      const err = { error: 'Trading not allowed outside configured windows or market hours' };
       logEvent('tool.buyShares.denied', { args: { symbol, quantity, note }, result: err });
       return { isError: true, content: [{ type: 'text', text: JSON.stringify(err) }] };
     }
@@ -49,13 +49,13 @@ async function startMcpServer({ name, description }) {
     return { content: [{ type: 'text', text: JSON.stringify(result) }] };
   });
 
-  server.tool('sellShares', 'Place a market sell order (paper trading only). Only allowed during trading windows.', {
+  server.tool('sellShares', 'Place a market sell order (paper trading only). Allowed during trading windows or regular market hours.', {
     symbol: z.string(),
     quantity: z.number().int().min(1),
     note: z.string().optional(),
   }, async ({ symbol, quantity, note }) => {
-    if (!isWithinTradingWindow()) {
-      const err = { error: 'Trading not allowed outside configured windows' };
+    if (!(isWithinTradingWindow() || isWithinMarketHours())) {
+      const err = { error: 'Trading not allowed outside configured windows or market hours' };
       logEvent('tool.sellShares.denied', { args: { symbol, quantity, note }, result: err });
       return { isError: true, content: [{ type: 'text', text: JSON.stringify(err) }] };
     }
@@ -69,6 +69,12 @@ async function startMcpServer({ name, description }) {
     const a = await getAccount(getAlpaca());
     logEvent('tool.viewAccountBalance', { result: a });
     return { content: [{ type: 'text', text: JSON.stringify(a) }] };
+  });
+
+  server.tool('viewOpenOrders', 'List currently open/pending orders', async () => {
+    const orders = await getOpenOrders(getAlpaca());
+    logEvent('tool.viewOpenOrders', { result: orders });
+    return { content: [{ type: 'text', text: JSON.stringify(orders) }] };
   });
 
   // Scratchpad tools for messaging across windows
