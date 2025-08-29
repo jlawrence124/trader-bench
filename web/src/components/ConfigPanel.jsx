@@ -18,7 +18,15 @@ export default function ConfigPanel() {
   const onSave = async () => {
     setSaving(true)
     try {
-      const updated = await fetchJson('/api/debug/config', { method: 'PUT', body: JSON.stringify({ agent: cfg.agent, agentStartCommand: cfg.agentStartCommand || '', agentAutoStart: !!cfg.agentAutoStart }) })
+      const body = {
+        agent: cfg.agent,
+        agentStartCommand: cfg.agentStartCommand || '',
+        agentAutoStart: !!cfg.agentAutoStart,
+        alpacaKeyId: cfg.alpacaKeyId || '',
+        alpacaDataFeed: cfg.alpacaDataFeed || 'iex',
+      }
+      if (cfg.alpacaSecretKey && cfg.alpacaSecretKey !== '********') body.alpacaSecretKey = cfg.alpacaSecretKey
+      const updated = await fetchJson('/api/debug/config', { method: 'PUT', body: JSON.stringify(body) })
       setCfg(updated)
       setSavedAt(new Date())
     } catch (e) {
@@ -55,6 +63,45 @@ export default function ConfigPanel() {
           <label className="flex items-center gap-2 md:col-span-3">
             <input type="checkbox" checked={!!cfg.agentAutoStart} onChange={e=>setCfg({...cfg, agentAutoStart: e.target.checked})} />
             <span className="muted text-sm">Auto-start agent process on window open and stop on close</span>
+          </label>
+        </div>
+        <div className="mt-4 flex items-center gap-3">
+          <button disabled={saving} onClick={onSave} className="px-4 py-2 rounded bg-brand-600 text-white">{saving?'Saving…':'Save'}</button>
+          {savedAt && <div className="muted text-xs">Saved {savedAt.toLocaleTimeString()}</div>}
+        </div>
+      </div>
+
+      <div className="card">
+        <div className="text-sm muted mb-3">Alpaca Paper Trading</div>
+        <div className="grid md:grid-cols-3 gap-4">
+          <label className="block">
+            <div className="muted text-xs mb-1">API Key ID</div>
+            <input
+              className="w-full rounded border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 px-3 py-2 title"
+              value={cfg.alpacaKeyId || ''}
+              onChange={e=>setCfg({...cfg, alpacaKeyId: e.target.value})}
+            />
+          </label>
+          <label className="block">
+            <div className="muted text-xs mb-1">API Secret Key</div>
+            <input
+              type="password"
+              className="w-full rounded border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 px-3 py-2 title"
+              placeholder={cfg.alpacaSecretSet ? '********' : ''}
+              value={cfg.alpacaSecretKey || ''}
+              onChange={e=>setCfg({...cfg, alpacaSecretKey: e.target.value})}
+            />
+          </label>
+          <label className="block">
+            <div className="muted text-xs mb-1">Market Data Feed</div>
+            <select
+              className="w-full rounded border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 px-3 py-2 title"
+              value={cfg.alpacaDataFeed || 'iex'}
+              onChange={e=>setCfg({...cfg, alpacaDataFeed: e.target.value})}
+            >
+              <option value="iex">IEX (free)</option>
+              <option value="sip">SIP (paid)</option>
+            </select>
           </label>
         </div>
         <div className="mt-4 flex items-center gap-3">

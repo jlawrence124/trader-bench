@@ -253,6 +253,9 @@ function readDebugConfig() {
     agent: process.env.AGENT || 'CodexCLI',
     agentStartCommand: process.env.AGENT_START_CMD || '',
     agentAutoStart: String(process.env.AGENT_AUTO_START || 'false') === 'true',
+    alpacaKeyId: process.env.ALPACA_KEY_ID || '',
+    alpacaSecretKey: process.env.ALPACA_SECRET_KEY || '',
+    alpacaDataFeed: (process.env.ALPACA_DATA_FEED || 'iex'),
   };
   if (!fs.existsSync(DEBUG_FILE)) return defaults;
   try { return { ...defaults, ...JSON.parse(fs.readFileSync(DEBUG_FILE, 'utf8')) }; } catch { return defaults; }
@@ -262,8 +265,17 @@ function writeDebugConfig(cfg) {
 }
 let debugConfig = readDebugConfig();
 
+function maskConfig(cfg) {
+  return {
+    ...cfg,
+    alpacaSecretSet: Boolean(cfg.alpacaSecretKey && String(cfg.alpacaSecretKey).length),
+    alpacaSecretKey: cfg.alpacaSecretKey ? '********' : '',
+  };
+}
+
 app.get('/api/debug/config', (req, res) => {
-  res.json(debugConfig);
+  // Do not leak the full secret; mask value if present
+  res.json(maskConfig(debugConfig));
 });
 
 app.put('/api/debug/config', (req, res) => {
@@ -278,13 +290,23 @@ app.put('/api/debug/config', (req, res) => {
     agent: body.agent || debugConfig.agent,
     agentStartCommand: body.agentStartCommand ?? debugConfig.agentStartCommand,
     agentAutoStart: Boolean(body.agentAutoStart ?? debugConfig.agentAutoStart),
+    alpacaKeyId: body.alpacaKeyId ?? debugConfig.alpacaKeyId,
+    alpacaSecretKey: (typeof body.alpacaSecretKey === 'string' && body.alpacaSecretKey !== '********' && body.alpacaSecretKey.length) ? body.alpacaSecretKey : debugConfig.alpacaSecretKey,
+    alpacaDataFeed: body.alpacaDataFeed || debugConfig.alpacaDataFeed,
   };
   writeDebugConfig(debugConfig);
   // Apply overrides for scheduler and symbol
   setOverrides({ tz: debugConfig.timezone, tradingWindowsCsv: debugConfig.tradingWindows, durationMin: debugConfig.windowDurationMinutes });
   // Update benchmark symbol for sampling
   process.env.BENCHMARK_SYMBOL = debugConfig.benchmarkSymbol;
-  res.json(debugConfig);
+  // Update Alpaca runtime environment and reset client
+  process.env.ALPACA_KEY_ID = debugConfig.alpacaKeyId || '';
+  if (debugConfig.alpacaSecretKey) process.env.ALPACA_SECRET_KEY = debugConfig.alpacaSecretKey;
+  process.env.ALPACA_DATA_FEED = debugConfig.alpacaDataFeed || 'iex';
+  alpaca = null;
+  try { logEvent('alpaca.reconfigured', { feed: debugConfig.alpacaDataFeed, hasKey: !!debugConfig.alpacaKeyId }); } catch {}
+  // Return masked view to avoid exposing secrets
+  res.json(maskConfig(debugConfig));
 });
 
 app.post('/api/debug/reschedule', (req, res) => {

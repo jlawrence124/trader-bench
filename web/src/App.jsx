@@ -23,6 +23,9 @@ export default function App() {
   const [tab, setTab] = useState('dashboard')
   const [theme, setTheme] = useState(() => localStorage.getItem('theme') || 'light')
   const [agent, setAgent] = useState('')
+  const [winActive, setWinActive] = useState(false)
+  const [winEnd, setWinEnd] = useState(null)
+  const [nowTs, setNowTs] = useState(Date.now())
 
   useEffect(() => {
     const load = async () => {
@@ -67,13 +70,25 @@ export default function App() {
           if (e?.type === 'logs.cleared') return [e]
           return [...prev, e]
         })
-        if (e?.type === 'window.open' && (e.window?.id === 'adhoc')) {
+        if (e?.type === 'window.open') {
+          setWinActive(true)
+          if (e.window?.end) setWinEnd(e.window.end)
           setTab('dashboard')
+        } else if (e?.type === 'window.close') {
+          setWinActive(false)
+          setWinEnd(null)
         }
       } catch {}
     }
     return () => sse.close()
   }, [])
+
+  // Ticker for countdown display while window is active
+  useEffect(() => {
+    if (!winActive) return
+    const id = setInterval(() => setNowTs(Date.now()), 1000)
+    return () => clearInterval(id)
+  }, [winActive])
 
   useEffect(() => {
     const root = document.documentElement
@@ -87,7 +102,7 @@ export default function App() {
       <div className="max-w-7xl mx-auto flex items-center justify-between">
         <div>
           <div className="text-2xl font-bold title">Trader Bench</div>
-          <div className="muted">AI Trading Benchmark • Paper • MCP</div>
+          <div className="muted">AI Trading Benchmark</div>
         </div>
         <div className="flex items-center gap-4">
           <div className="flex rounded-lg overflow-hidden border border-slate-200 dark:border-slate-700">
@@ -106,6 +121,17 @@ export default function App() {
   return (
     <div className="app-bg">
       {header}
+      {winActive && (
+        <div className="max-w-7xl mx-auto px-5">
+          <div className="mt-4 mb-0 rounded-lg border border-amber-300 bg-amber-100 text-amber-900 dark:bg-amber-900/30 dark:text-amber-200 dark:border-amber-700 px-3 py-2 text-sm flex items-center justify-between">
+            <div className="font-semibold">Trading Window Open</div>
+            <div className="muted">
+              Ends at {winEnd ? new Date(winEnd).toLocaleTimeString([], {hour: '2-digit', minute: '2-digit'}) : '—'}
+              {winEnd && (() => { const ms = Math.max(0, new Date(winEnd).getTime() - nowTs); const m = Math.floor(ms/60000); const s = Math.floor((ms%60000)/1000); return ` • ${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')} remaining` })()}
+            </div>
+          </div>
+        </div>
+      )}
       {tab === 'dashboard' ? (
         <div className="max-w-7xl mx-auto px-5 py-6 space-y-6">
           <SummaryCards metrics={metrics} account={account} />
