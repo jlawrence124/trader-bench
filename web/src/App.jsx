@@ -26,6 +26,12 @@ export default function App() {
   const [winActive, setWinActive] = useState(false)
   const [winEnd, setWinEnd] = useState(null)
   const [nowTs, setNowTs] = useState(Date.now())
+  const [nextLabel, setNextLabel] = useState('')
+  const [cfgTz, setCfgTz] = useState('America/New_York')
+  const [cfgWindowsCsv, setCfgWindowsCsv] = useState('08:00,09:31,12:00,15:55')
+  const [cfgDurMin, setCfgDurMin] = useState(4)
+  const [nextStart, setNextStart] = useState(null)
+  const [statusTz, setStatusTz] = useState('')
 
   useEffect(() => {
     const load = async () => {
@@ -42,7 +48,13 @@ export default function App() {
       if (res[2].status === 'fulfilled') setPositions(res[2].value); else console.warn('positions load failed', res[2].reason)
       if (res[3].status === 'fulfilled') setLogs(res[3].value); else console.warn('logs load failed', res[3].reason)
       if (res[4].status === 'fulfilled') setAccount(res[4].value); else console.warn('account load failed', res[4].reason)
-      if (res[5].status === 'fulfilled') setAgent(res[5].value?.agent || ''); else console.warn('config load failed', res[5].reason)
+      if (res[5].status === 'fulfilled') {
+        const c = res[5].value
+        setAgent(c?.agent || '')
+        if (c?.timezone) setCfgTz(c.timezone)
+        if (c?.tradingWindows) setCfgWindowsCsv(c.tradingWindows)
+        if (typeof c?.windowDurationMinutes === 'number') setCfgDurMin(c.windowDurationMinutes)
+      } else console.warn('config load failed', res[5].reason)
     }
     load()
   }, [])
@@ -56,7 +68,7 @@ export default function App() {
       try { const s = await fetchJson('/api/series'); setEquity(s.equity||[]); setSpyUSD(s.spyUSD||[]) } catch {}
       try { setPositions(await fetchJson('/api/positions')) } catch {}
       try { setAccount(await fetchJson('/api/account')) } catch {}
-      try { const c = await fetchJson('/api/debug/config'); setAgent(c?.agent || '') } catch {}
+      try { const c = await fetchJson('/api/debug/config'); setAgent(c?.agent || ''); if (c?.timezone) setCfgTz(c.timezone); if (c?.tradingWindows) setCfgWindowsCsv(c.tradingWindows); if (typeof c?.windowDurationMinutes==='number') setCfgDurMin(c.windowDurationMinutes) } catch {}
     }, 30000)
     return () => clearInterval(id)
   }, [])
@@ -90,6 +102,59 @@ export default function App() {
     return () => clearInterval(id)
   }, [winActive])
 
+  // Poll window status for next start countdown (with client-side fallback) and keep a 1s tick
+  useEffect(() => {
+    let cancelled = false
+    const computeFallback = () => {
+      try {
+        const tz = cfgTz || 'America/New_York'
+        const csv = (cfgWindowsCsv || '').split(',').map(s=>s.trim()).filter(Boolean)
+        const dur = Number(cfgDurMin || 4)
+        const now = new Date()
+        const parts = new Intl.DateTimeFormat('en-US', { timeZone: tz, hour12: false, hour:'2-digit', minute:'2-digit', second:'2-digit' }).formatToParts(now)
+        const get = t=>Number((parts.find(p=>p.type===t)||{}).value||'0')
+        const hh = get('hour'), mm = get('minute'), ss = get('second')
+        const nowMin = hh*60 + mm
+        const wins = csv.map(t=>{ const [H,M]=t.split(':').map(Number); return H*60+M }).sort((a,b)=>a-b)
+        // Active?
+        for (const w of wins) {
+          if (nowMin >= w && nowMin < w + dur) {
+            const endDeltaSec = (w + dur)*60 - (nowMin*60 + ss)
+            setWinActive(true)
+            setWinEnd(new Date(Date.now()+Math.max(0,endDeltaSec*1000)).toISOString())
+            setNextStart(null)
+            setNextLabel('')
+            return
+          }
+        }
+        // Next
+        let nextMin = null
+        for (const w of wins) { if (w > nowMin) { nextMin = w; break } }
+        if (nextMin == null && wins.length) nextMin = wins[0] + 1440
+        if (nextMin != null) {
+          const deltaSec = nextMin*60 - (nowMin*60 + ss)
+          setNextStart(new Date(Date.now()+Math.max(0,deltaSec*1000)).toISOString())
+          const H = String(Math.floor((nextMin % 1440)/60)).padStart(2,'0')
+          const M = String((nextMin % 60)).padStart(2,'0')
+          setNextLabel(`${H}:${M}:00`)
+          setWinActive(false)
+        }
+      } catch {}
+    }
+    const load = async () => {
+      try {
+        const s = await fetchJson('/api/window/status')
+        if (cancelled) return
+        if (s?.current?.end) { setWinActive(true); setWinEnd(s.current.end) } else { setWinActive(false) }
+        if (s?.next?.start) { setNextStart(s.next.start); setNextLabel('') } else { computeFallback() }
+      } catch { computeFallback() }
+    }
+    load()
+    const t1 = setInterval(load, 30000)
+    const t2 = setInterval(() => setNowTs(Date.now()), 1000)
+    return () => { cancelled = true; clearInterval(t1); clearInterval(t2) }
+  }, [])
+
   useEffect(() => {
     const root = document.documentElement
     if (theme === 'dark') root.classList.add('dark')
@@ -105,6 +170,22 @@ export default function App() {
           <div className="muted">AI Trading Benchmark</div>
         </div>
         <div className="flex items-center gap-4">
+          {/* Next window countdown pill (top-right) */}
+          <div className="hidden md:flex items-center gap-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 px-2 py-1 text-xs title">
+            {winActive ? (
+              <>
+                <span className="text-emerald-500">Open</span>
+                <span>Ends {winEnd ? new Date(winEnd).toLocaleTimeString([], {hour: '2-digit', minute: '2-digit', second: '2-digit'}) : '—'}</span>
+                {winEnd && (() => { const ms = Math.max(0, new Date(winEnd).getTime() - nowTs); const m = Math.floor(ms/60000); const s = Math.floor((ms%60000)/1000); return <span className="muted">• {String(m).padStart(2,'0')}:{String(s).padStart(2,'0')}</span> })()}
+              </>
+            ) : (
+              <>
+                <span className="muted">Next</span>
+                <span>{nextStart ? new Date(nextStart).toLocaleTimeString([], {hour: '2-digit', minute: '2-digit', second: '2-digit'}) : '—'}</span>
+                {nextStart && (() => { const ms = Math.max(0, new Date(nextStart).getTime() - nowTs); const h = Math.floor(ms/3600000); const m = Math.floor((ms%3600000)/60000); const s = Math.floor((ms%60000)/1000); return <span className="muted">• {h>0?`${String(h).padStart(2,'0')}:`:''}{String(m).padStart(2,'0')}:{String(s).padStart(2,'0')}</span> })()}
+              </>
+            )}
+          </div>
           <div className="flex rounded-lg overflow-hidden border border-slate-200 dark:border-slate-700">
             <button onClick={() => setTab('dashboard')} className={`px-3 py-1 text-sm ${tab==='dashboard' ? 'bg-brand-500 text-white' : 'muted bg-white dark:bg-slate-800'}`}>Dashboard</button>
             <button onClick={() => setTab('debug')} className={`px-3 py-1 text-sm ${tab==='debug' ? 'bg-brand-500 text-white' : 'muted bg-white dark:bg-slate-800'}`}>Debug</button>
@@ -126,7 +207,7 @@ export default function App() {
           <div className="mt-4 mb-0 rounded-lg border border-amber-300 bg-amber-100 text-amber-900 dark:bg-amber-900/30 dark:text-amber-200 dark:border-amber-700 px-3 py-2 text-sm flex items-center justify-between">
             <div className="font-semibold">Trading Window Open</div>
             <div className="muted">
-              Ends at {winEnd ? new Date(winEnd).toLocaleTimeString([], {hour: '2-digit', minute: '2-digit'}) : '—'}
+              Ends at {winEnd ? new Date(winEnd).toLocaleTimeString([], {hour: '2-digit', minute: '2-digit', second: '2-digit'}) : '—'}
               {winEnd && (() => { const ms = Math.max(0, new Date(winEnd).getTime() - nowTs); const m = Math.floor(ms/60000); const s = Math.floor((ms%60000)/1000); return ` • ${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')} remaining` })()}
             </div>
           </div>
