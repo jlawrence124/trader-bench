@@ -4,7 +4,7 @@ const express = require('express');
 const cors = require('cors');
 const { createClient, getAccount, getPositions, getLatestPrice } = require('./alpaca');
 const { addSseClient, logEvent, readRecentLogs, DATA_DIR } = require('./log');
-const { parseWindowsFromEnv, scheduleToday, setOverrides, openAdhocWindow, clearAdhocWindow } = require('./scheduler');
+const { parseWindowsFromEnv, scheduleToday, setOverrides, openAdhocWindow, clearAdhocWindow, getWindowStatus } = require('./scheduler');
 const { cumulativeReturn, maxDrawdown, sharpe } = require('./metrics');
 const fs = require('fs');
 const path = require('path');
@@ -161,6 +161,12 @@ app.get('/api/series', (req, res) => {
   res.json(buildNormalizedSeries(Number.isFinite(limit) ? limit : undefined));
 });
 
+// Window status: active current window and next scheduled window
+app.get('/api/window/status', (req, res) => {
+  try { res.json(getWindowStatus()); }
+  catch (e) { res.status(500).json({ error: String(e.message || e) }); }
+});
+
 // Scratchpad endpoints (agent notes for next window)
 app.get('/api/scratchpad', (req, res) => {
   res.json(readJsonl(SCRATCH_FILE));
@@ -190,12 +196,22 @@ app.delete('/api/scratchpad', (req, res) => {
 
 // Scheduler window events
 let windowTimers = [];
+let currentWindow = null; // { id, start, end }
+const closedWindowKeys = new Set();
+function windowKey(w) { return w ? `${w.id}|${w.start}|${w.end}` : null }
+function markWindowOpen(w) { currentWindow = w }
+function markWindowClosed(w) { if (w) closedWindowKeys.add(windowKey(w)); currentWindow = null }
 function setupWindowScheduler() {
   // Clear any existing timers
   for (const t of windowTimers) clearTimeout(t);
   windowTimers = scheduleToday(
-    (w) => { logEvent('window.open', { window: w }); startAgentIfConfigured(w); },
-    (w) => { stopAgent('window.close', w); logEvent('window.close', { window: w }); }
+    (w) => { logEvent('window.open', { window: w }); markWindowOpen(w); startAgentIfConfigured(w); },
+    (w) => {
+      if (closedWindowKeys.has(windowKey(w))) return; // already closed manually/force
+      stopAgent('window.close', w);
+      logEvent('window.close', { window: w });
+      markWindowClosed(w);
+    }
   );
 }
 
@@ -350,6 +366,12 @@ function startAgentIfConfigured(w) {
     proc.on('close', (code, signal) => {
       logEvent('agent.exited', { code, signal });
       agentProc = null;
+      if (currentWindow) {
+        const cw = currentWindow;
+        stopAgent('agent.exited', cw);
+        logEvent('window.close', { window: cw, reason: 'agent.exited' });
+        markWindowClosed(cw);
+      }
     });
   } catch (e) {
     logEvent('agent.start.error', { error: String(e.message || e) });
@@ -379,11 +401,14 @@ app.post('/api/debug/placeOrder', async (req, res) => {
       result = { dryRun: true, symbol, side, quantity };
       logEvent('debug.order.dryRun', { args: { symbol, side, quantity, note }, result });
     } else {
-      // If not forced, rely on regular window enforcement via MCP; for debug, allow force
+      // Allow during configured windows OR regular market hours unless force=false outside both
+      const { isWithinTradingWindow, isWithinMarketHours } = require('./scheduler');
       if (!force) {
-        result = { error: 'Use force=true or run inside trading window' };
-        logEvent('debug.order.denied', { args: { symbol, side, quantity, note }, result });
-        return res.status(400).json(result);
+        if (!(isWithinTradingWindow() || isWithinMarketHours())) {
+          result = { error: 'Use force=true or run inside trading window or market hours' };
+          logEvent('debug.order.denied', { args: { symbol, side, quantity, note }, result });
+          return res.status(400).json(result);
+        }
       }
       const order = await require('./alpaca').placeOrder(getAlpaca(), { symbol, qty: quantity, side });
       result = { order };
@@ -421,15 +446,34 @@ app.post('/api/debug/run-once', (req, res) => {
   setTimeout(() => {
     const w = { id: 'adhoc', start, end };
     logEvent('window.open', { window: w });
+    markWindowOpen(w);
     startAgentIfConfigured(w);
   }, Math.max(0, startDate.getTime() - now));
   setTimeout(() => {
     const w = { id: 'adhoc', start, end };
     stopAgent('adhoc.close', w);
-    logEvent('window.close', { window: w });
+    if (!closedWindowKeys.has(windowKey(w))) {
+      logEvent('window.close', { window: w });
+      markWindowClosed(w);
+    }
     clearAdhocWindow();
   }, Math.max(0, endDate.getTime() - now));
   res.json({ ok: true, start, end, durationMinutes: duration });
+});
+
+// Manual stop of current open window
+app.post('/api/debug/stop-window', (req, res) => {
+  try {
+    if (!currentWindow) return res.status(400).json({ error: 'No active window' });
+    const w = currentWindow;
+    stopAgent('manual.stop', w);
+    if (!closedWindowKeys.has(windowKey(w))) {
+      logEvent('window.close', { window: w, reason: 'manual' });
+      markWindowClosed(w);
+    }
+    clearAdhocWindow();
+    res.json({ ok: true, window: w });
+  } catch (e) { res.status(500).json({ error: String(e.message || e) }); }
 });
 
 // Danger: Start-fresh reset endpoint (gated)
