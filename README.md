@@ -24,7 +24,7 @@ AI model trading benchmark with:
 
 If you change the backend port, update `web/vite.config.js` proxy target to match.
 
-Note: The MCP server runs over stdio. Configure your agent to launch `npm run mcp` in the `server` workspace. The agent will only see the MCP tools; no filesystem or other project structure is exposed.
+Note: The MCP server runs over stdio. The built-in agent connects directly and only sees the MCP tools; no filesystem or other project structure is exposed.
 
 ## Trading Windows
 - Defaults (US/Eastern): 08:00, 09:31, 12:00, 15:55;
@@ -71,7 +71,6 @@ Inspired by vendingBench concepts for constrained, fair, comparable benchmarking
 - `npm run mcp` – MCP only mode (stdio) with API enabled in-process
 - `npm run web` – dev server for frontend (Vite)
 - `npm run build` – build both server and web
-- `npm run agent:gemini` – launch Gemini CLI headless using the standard prompt
 
 ## Data Storage
 - Append-only JSONL logs in `server/data/`
@@ -81,20 +80,9 @@ Inspired by vendingBench concepts for constrained, fair, comparable benchmarking
 - Do not use real money — this uses Alpaca paper trading only.
 - Set your timezone carefully for accurate window enforcement.
 
-## Headless Agent Prompt
+## Built-in Headless Agent
 
-A standard, model-agnostic prompt lives at `agent/prompt.md`. Edit this file to adjust behavior and constraints. It’s designed to work with any agent CLI that accepts a prompt string.
-
-Quick start (CLI example):
-- Ensure your Gemini CLI is installed and MCP server entry is configured in `~/.gemini/settings.json`.
-- From the repo root, run: `npm run agent:gemini`
-  - Override model: `AGENT_MODEL=gemini-2.0-pro npm run agent:gemini`
-  - Use a different prompt file: `AGENT_PROMPT_FILE=path/to/your.md npm run agent:gemini`
-
-Notes:
-- The agent interacts only through MCP tools; it does not rely on project files.
-- The MCP server is stdio-based and is spawned by your agent CLI per your configuration.
-
-Other agents
-- Use the same prompt file (`agent/prompt.md`) and pass its contents according to your CLI’s convention (e.g., `-p "$(cat agent/prompt.md)"` or piping the file content).
-- Set the backend’s “Agent Start Command” to the CLI you prefer; only processes started by the backend stream `agent.stdout` into the UI.
+- Prompt: `agent/prompt.md` (edit to adjust behavior and constraints)
+- Configure in the web app under Config → LLM API: set provider (OpenAI or OpenAI‑compatible), model, base URL (optional), and API key.
+- Enable “Auto-start built-in agent” to launch it when a trading window opens.
+- The agent interacts only through MCP tools and streams its output to the dashboard.

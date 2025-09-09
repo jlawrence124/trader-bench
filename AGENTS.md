@@ -14,45 +14,19 @@ This repository contains a small Node/React project used to benchmark AI trading
   - `getScratchpad(limit?)` – recent notes across windows
   - `addScratchpad(message, tags?, author?)` – append a note
 
-Spawn command (recommended, no wrapper output):
-- command: `/opt/homebrew/bin/node`
+Spawn: the UI launches the MCP server internally when using the built‑in agent. If launching manually, prefer stdio:
+- command: `node`
 - args: `["server/src/index.js", "--mcp"]`
-- cwd: `<repo root>`
-- env: `{ ENABLE_MCP: "true", PORT: "0" }`  (PORT=0 avoids conflicts; MCP is stdio)
-
-Note: avoid `npm run ...` as it prints banner lines to stdout (e.g., `> node src ...`), which corrupts the stdio JSON‑RPC stream and causes MCP parse errors like “Unexpected token '>'”.
-
-Gemini CLI example (`~/.gemini/settings.json`):
-```
-{
-  "mcpServers": {
-    "trader": {
-      "transport": "stdio",
-      "command": "/opt/homebrew/bin/npm",
-      "args": ["run", "mcp"],
-      "cwd": "/Users/you/path/trader-bench",
-      "env": { "ENABLE_MCP": "true", "PORT": "0" }
-    }
-  },
-  "allowedMcpServerNames": ["trader"]
-}
-```
+- cwd: repo root
+- env: `{ ENABLE_MCP: "true", PORT: "0" }`
 
 ## Headless Trading Agent
 
-- Canonical prompt: `agent/prompt.md` (keep this concise and model‑agnostic)
-- Quick run (Gemini CLI):
-  - `npm run agent:gemini`
-  - Override model: `AGENT_MODEL=gemini-2.0-pro npm run agent:gemini`
-  - Alternate prompt: `AGENT_PROMPT_FILE=path/to/your.md npm run agent:gemini`
-- Other CLIs: pass the contents of `agent/prompt.md` via your tool’s prompt flag (e.g., `-p "$(cat agent/prompt.md)"`).
+- Canonical prompt: `agent/prompt.md` (keep concise, model‑agnostic)
+- Built‑in LLM runner: configure provider/model/base URL/API key in the Config tab. Enable auto‑start to run during trading windows. Output appears in the Agent Output panel.
 
 Backend auto‑start (to stream stdout into the UI):
-- The backend can optionally spawn your agent when a trading window opens.
-- Set these via the Debug tab or `server/.env`:
-  - `AGENT=YourAgentName`
-  - `AGENT_START_CMD=/absolute/path/to/your/cli -p "$(cat /abs/path/to/repo/agent/prompt.md)"`
-  - `AGENT_AUTO_START=true`
+- Enable in the Config tab with “Auto‑start built‑in agent”. You can also set `AGENT_AUTO_START=true` in `server/.env`.
 
 ## Trading Agent Instructions (source of truth: `agent/prompt.md`)
 
