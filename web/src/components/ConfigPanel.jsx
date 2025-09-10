@@ -12,6 +12,7 @@ export default function ConfigPanel() {
   const [cfg, setCfg] = useState(null)
   const [saving, setSaving] = useState(false)
   const [savedAt, setSavedAt] = useState(null)
+  const [testingAlpaca, setTestingAlpaca] = useState(false)
 
   useEffect(() => { (async ()=>{ try { setCfg(await fetchJson('/api/debug/config')) } catch {} })() }, [])
 
@@ -166,6 +167,33 @@ export default function ConfigPanel() {
         <div className="mt-4 flex items-center gap-3">
           <button disabled={saving} onClick={onSave} className="px-4 py-2 rounded bg-brand-600 text-white">{saving?'Saving…':'Save'}</button>
           {savedAt && <div className="muted text-xs">Saved {savedAt.toLocaleTimeString()}</div>}
+          <button
+            disabled={testingAlpaca}
+            onClick={async()=>{
+              setTestingAlpaca(true)
+              try {
+                // Ensure latest keys are persisted before testing
+                await onSave()
+                const r = await fetchJson('/api/debug/test-alpaca', { method: 'POST' })
+                const acct = r.account || {}
+                const md = r.marketData || {}
+                const lines = [
+                  'Alpaca OK',
+                  acct.status ? `Account: ${acct.status}` : '',
+                  typeof acct.equity === 'number' ? `Equity: $${acct.equity.toFixed(2)}` : '',
+                  typeof acct.buyingPower === 'number' ? `Buying Power: $${acct.buyingPower.toFixed(2)}` : '',
+                  md && md.symbol && typeof md.price === 'number' ? `Market Data (${md.symbol} via ${md.source||'?' }): $${md.price}` : (md && md.error ? `Market Data Error: ${md.error}` : ''),
+                ].filter(Boolean)
+                alert(lines.join('\n'))
+              } catch (e) {
+                const msg = String(e && (e.message || e))
+                alert(`Alpaca test failed\n${msg}`)
+              } finally { setTestingAlpaca(false) }
+            }}
+            className="px-4 py-2 rounded border border-slate-300 dark:border-slate-600 title"
+          >
+            {testingAlpaca ? 'Testing…' : 'Test Alpaca'}
+          </button>
         </div>
       </div>
 

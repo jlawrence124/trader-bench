@@ -21,7 +21,8 @@ async function main() {
             xai: 'https://api.x.ai/v1',
             anthropic: 'https://api.anthropic.com',
             gemini: 'https://generativelanguage.googleapis.com/v1beta',
-            qwen: 'https://dashscope.aliyuncs.com/compatible-mode/v1', // OpenAI-compatible
+            // Use DashScope Intl OpenAI-compatible endpoint by default
+            qwen: 'https://dashscope-intl.aliyuncs.com/compatible-mode/v1', // OpenAI-compatible
         };
         baseUrl = defaults[provider] || 'https://api.openai.com/v1';
     }
@@ -40,7 +41,8 @@ async function main() {
     const transport = new StdioClientTransport({
         command: process.execPath,
         args: [serverPath, '--mcp'],
-        env: { ENABLE_MCP: 'true', PORT: '0' },
+        // Inherit parent env so Alpaca/other credentials flow into the MCP server
+        env: { ...process.env, ENABLE_MCP: 'true', PORT: '0' },
         stderr: 'pipe',
     });
 
