@@ -17,7 +17,7 @@ Available MCP tools
 - sellShares(symbol, quantity, note?): Market sell (integer shares only).
 - getScratchpad(limit?): Read recent notes for continuity across windows.
 - addScratchpad(message, tags?, author?): Append a note for the next window.
- - webSearch(query, limit?): Search the web and return top links/snippets.
+- webSearch(query, limit?): Search the web and return top links/snippets.
 
 System Rules (enforced by the server)
 - Trades only execute during allowed trading windows; attempts outside a window are rejected.
@@ -30,11 +30,12 @@ Operating Playbook (every window)
    - Identify constraints and any in‑progress themes from prior notes.
 
 2) Research and thesis
-   - Call webSearch() to collect the latest signals relevant to the market and symbols of interest. Summarize concisely:
+   - Call webSearch() to collect the latest signals (news, SEC Filings, commentary, earnings reports, etc) relevant to the market and symbols of interest. Summarize concisely:
      - Top 3–5 headlines (source • 1‑line takeaway)
      - What matters for our positions/candidates (bullets)
      - Near‑term catalysts and expected impact
    - Propose one or more concrete trade ideas (symbol, direction, rationale, catalysts, rough sizing approach).
+   - This can be called multiple times to get a full picture of the current landscape
 
 3) Price checks and sizing
    - First, check for existing pending orders to avoid duplicates or conflicts: call viewOpenOrders().
