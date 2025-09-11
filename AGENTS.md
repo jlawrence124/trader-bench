@@ -14,6 +14,7 @@ This repository contains a small Node/React project used to benchmark AI trading
   - `getScratchpad(limit?)` – recent notes across windows
   - `addScratchpad(message, tags?, author?)` – append a note
   - `getWindowStatus()` – current/next trading window and timezone
+  - `getMetrics()` – equityReturn, benchReturn, alpha, maxDrawdown, sharpe
 
 Spawn: the UI launches the MCP server internally when using the built‑in agent. If launching manually, prefer stdio:
 - command: `node`
@@ -26,7 +27,7 @@ Spawn: the UI launches the MCP server internally when using the built‑in agent
 - Canonical prompt: `agent/prompt.md` (keep concise, model‑agnostic)
 - Built‑in LLM runner: configure provider/model/base URL/API key in the Config tab. Enable auto‑start to run during trading windows. Output appears in the Agent Output panel.
 
-Time awareness: at session start, the runner fetches `getWindowStatus()` via MCP. If the optional Time MCP server is available (e.g., `uvx mcp-server-time` or `python -m mcp_server_time`), it also fetches the current time for the configured timezone and includes both in a short context message.
+Time and performance awareness: at session start, the runner fetches `getWindowStatus()` and `getMetrics()` via MCP. If the optional Time MCP server is available (e.g., `uvx mcp-server-time` or `python -m mcp_server_time`), it also fetches the current time for the configured timezone and includes all three in a short context message (including current alpha vs SPY).
 
 Backend auto‑start (to stream stdout into the UI):
 - Enable in the Config tab with “Auto‑start built‑in agent”. You can also set `AGENT_AUTO_START=true` in `server/.env`.

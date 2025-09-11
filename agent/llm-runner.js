@@ -64,6 +64,17 @@ async function main() {
         }
     }
 
+    async function getMetricsViaMcp() {
+        try {
+            const info = await client.callTool({ name: 'getMetrics', arguments: {} });
+            const parts = Array.isArray(info?.content) ? info.content : [];
+            const text = parts.find((p) => p && p.type === 'text' && typeof p.text === 'string')?.text || '';
+            return JSON.parse(text || '{}');
+        } catch {
+            return null;
+        }
+    }
+
     async function getTimeFromTimeServer(timezone) {
         // Attempts: uvx mcp-server-time -> python -m mcp_server_time
         const attempts = [
@@ -158,6 +169,7 @@ async function main() {
 
     // Gather contextual awareness before starting the session
     const windowStatus = await getWindowStatusViaMcp();
+    const metrics = await getMetricsViaMcp();
     const tz = windowStatus?.tz || process.env.TIMEZONE || 'America/New_York';
     const timeInfo = await getTimeFromTimeServer(tz);
     // Log a concise preamble to stdout for the UI
@@ -172,6 +184,11 @@ async function main() {
         }
         if (timeInfo && timeInfo.datetime) log(`- Current time (${tz}): ${timeInfo.datetime}`);
         else log(`- Current time (${tz}): ${new Date().toISOString()} (fallback)`);
+        // Performance vs SPY
+        const pct = (v) => (typeof v === 'number' && isFinite(v) ? `${(v*100).toFixed(2)}%` : 'n/a');
+        if (metrics && (typeof metrics.alpha === 'number')) {
+            log(`- Performance: Alpha vs SPY ${pct(metrics.alpha)} (Equity ${pct(metrics.equityReturn)}, SPY ${pct(metrics.benchReturn)})`);
+        }
     } catch {}
 
     // Prepare initial conversation (include awareness snippet for the agent)
@@ -182,6 +199,10 @@ async function main() {
         awarenessLines.push(`No active predefined window. Next: ${windowStatus.next.id} at ${windowStatus.next.start}`);
     }
     if (timeInfo && timeInfo.datetime) awarenessLines.push(`Current time [${tz}]: ${timeInfo.datetime}`);
+    if (metrics && (typeof metrics.alpha === 'number')) {
+        const pct = (v) => (typeof v === 'number' && isFinite(v) ? `${(v*100).toFixed(2)}%` : 'n/a');
+        awarenessLines.push(`Alpha vs SPY: ${pct(metrics.alpha)} (Eq ${pct(metrics.equityReturn)}, SPY ${pct(metrics.benchReturn)})`);
+    }
     const awareness = awarenessLines.length ? awarenessLines.join(' | ') : '';
 
     const messages = [

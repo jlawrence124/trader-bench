@@ -320,7 +320,7 @@ function getProviderApiKey(providerRaw) {
   // Try primary, then common aliases, then generic LLM_API_KEY
   const p = String(providerRaw || '').toLowerCase();
   const candidates = [process.env[name]];
-  if (p === 'qwen') candidates.push(process.env.QWEN_API_KEY, process.env.QWEN_API_KEY);
+  if (p === 'qwen') candidates.push(process.env.QWEN_API_KEY);
   candidates.push(process.env.LLM_API_KEY);
   for (const v of candidates) { if (v && String(v).length) return v; }
   return '';
