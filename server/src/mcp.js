@@ -2,7 +2,7 @@ const { StdioServerTransport } = require('@modelcontextprotocol/sdk/server/stdio
 const { McpServer } = require('@modelcontextprotocol/sdk/server/mcp.js');
 const { z } = require('zod');
 const { createClient, getAccount, getPositions, placeOrder, getLatestPrice, getOpenOrders } = require('./alpaca');
-const { isWithinTradingWindow, isWithinMarketHours } = require('./scheduler');
+const { isWithinTradingWindow, isWithinMarketHours, getWindowStatus } = require('./scheduler');
 const { logEvent, DATA_DIR } = require('./log');
 const path = require('path');
 const fs = require('fs');
@@ -76,6 +76,17 @@ async function startMcpServer({ name, description }) {
     logEvent('tool.viewOpenOrders', { result: orders });
     return { content: [{ type: 'text', text: JSON.stringify(orders) }] };
   });
+
+  // Trading window awareness for agents
+  server.tool(
+    'getWindowStatus',
+    'Get current trading window status (active window and next scheduled window).',
+    async () => {
+      const status = getWindowStatus();
+      logEvent('tool.getWindowStatus', { result: status });
+      return { content: [{ type: 'text', text: JSON.stringify(status) }] };
+    }
+  );
 
   // --- Web search (best-effort) -------------------------------------------------------------
   // Provider selection via env or secrets file. Defaults to DuckDuckGo Instant Answer API

@@ -52,6 +52,44 @@ async function main() {
     );
     await client.connect(transport);
 
+    // Try to get trading window status via MCP and current time via the Time MCP server
+    async function getWindowStatusViaMcp() {
+        try {
+            const info = await client.callTool({ name: 'getWindowStatus', arguments: {} });
+            const parts = Array.isArray(info?.content) ? info.content : [];
+            const text = parts.find((p) => p && p.type === 'text' && typeof p.text === 'string')?.text || '';
+            return JSON.parse(text || '{}');
+        } catch {
+            return null;
+        }
+    }
+
+    async function getTimeFromTimeServer(timezone) {
+        // Attempts: uvx mcp-server-time -> python -m mcp_server_time
+        const attempts = [
+            { command: 'uvx', args: ['mcp-server-time'] },
+            { command: 'python', args: ['-m', 'mcp_server_time'] },
+        ];
+        for (const a of attempts) {
+            try {
+                const tTransport = new StdioClientTransport({ command: a.command, args: a.args, env: { ...process.env } });
+                const tClient = new Client({ name: 'time-client', version: '0.1.0' }, { capabilities: { tools: {} } });
+                await tClient.connect(tTransport);
+                try {
+                    const res = await tClient.callTool({ name: 'get_current_time', arguments: { timezone: timezone || 'UTC' } });
+                    const parts = Array.isArray(res?.content) ? res.content : [];
+                    const text = parts.find((p) => p && p.type === 'text' && typeof p.text === 'string')?.text || '';
+                    const obj = JSON.parse(text || '{}');
+                    try { await tTransport.close(); } catch {}
+                    return obj && obj.datetime ? obj : null;
+                } catch (e) {
+                    try { await tTransport.close(); } catch {}
+                }
+            } catch {}
+        }
+        return null;
+    }
+
     // Read prompt file
     const promptFile = path.join(__dirname, 'prompt.md');
     const fallbackPromptFile = path.join(__dirname, '..', 'agent', 'prompt.md');
@@ -118,9 +156,37 @@ async function main() {
         } catch {}
     }
 
-    // Prepare initial conversation
+    // Gather contextual awareness before starting the session
+    const windowStatus = await getWindowStatusViaMcp();
+    const tz = windowStatus?.tz || process.env.TIMEZONE || 'America/New_York';
+    const timeInfo = await getTimeFromTimeServer(tz);
+    // Log a concise preamble to stdout for the UI
+    try {
+        log('### Window Context');
+        if (windowStatus && windowStatus.active && windowStatus.current) {
+            log(`- Active window: ${windowStatus.current.id} (${windowStatus.current.start} → ${windowStatus.current.end})`);
+        } else if (windowStatus && windowStatus.next) {
+            log(`- Not in predefined window. Next: ${windowStatus.next.id} at ${windowStatus.next.start}`);
+        } else {
+            log('- Window status unavailable');
+        }
+        if (timeInfo && timeInfo.datetime) log(`- Current time (${tz}): ${timeInfo.datetime}`);
+        else log(`- Current time (${tz}): ${new Date().toISOString()} (fallback)`);
+    } catch {}
+
+    // Prepare initial conversation (include awareness snippet for the agent)
+    const awarenessLines = [];
+    if (windowStatus && windowStatus.active && windowStatus.current) {
+        awarenessLines.push(`Active window: ${windowStatus.current.id} (${windowStatus.current.start} to ${windowStatus.current.end})`);
+    } else if (windowStatus && windowStatus.next) {
+        awarenessLines.push(`No active predefined window. Next: ${windowStatus.next.id} at ${windowStatus.next.start}`);
+    }
+    if (timeInfo && timeInfo.datetime) awarenessLines.push(`Current time [${tz}]: ${timeInfo.datetime}`);
+    const awareness = awarenessLines.length ? awarenessLines.join(' | ') : '';
+
     const messages = [
         { role: 'system', content: systemPrompt },
+        ...(awareness ? [{ role: 'user', content: `Session context: ${awareness}` }] : []),
         {
             role: 'user',
             content:
