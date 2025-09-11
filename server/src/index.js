@@ -311,12 +311,19 @@ function providerEnvName(providerRaw) {
   if (p === 'mistral') return 'MISTRAL_API_KEY';
   if (p === 'deepseek') return 'DEEPSEEK_API_KEY';
   if (p === 'grok' || p === 'xai') return 'XAI_API_KEY';
+  // Historically some setups used QWEN_API_KEY; prefer QWEN_API_KEY but support both downstream
   if (p === 'qwen') return 'QWEN_API_KEY';
   return 'LLM_API_KEY';
 }
 function getProviderApiKey(providerRaw) {
   const name = providerEnvName(providerRaw);
-  return process.env[name] || process.env.LLM_API_KEY || '';
+  // Try primary, then common aliases, then generic LLM_API_KEY
+  const p = String(providerRaw || '').toLowerCase();
+  const candidates = [process.env[name]];
+  if (p === 'qwen') candidates.push(process.env.QWEN_API_KEY, process.env.QWEN_API_KEY);
+  candidates.push(process.env.LLM_API_KEY);
+  for (const v of candidates) { if (v && String(v).length) return v; }
+  return '';
 }
 function updateEnvFile(updates) {
   try {
@@ -397,6 +404,12 @@ app.put('/api/debug/config', (req, res) => {
   process.env.ALPACA_KEY_ID = debugConfig.alpacaKeyId || '';
   if (debugConfig.alpacaSecretKey) process.env.ALPACA_SECRET_KEY = debugConfig.alpacaSecretKey;
   process.env.ALPACA_DATA_FEED = debugConfig.alpacaDataFeed || 'iex';
+  // Persist Alpaca creds to server/.env for future restarts
+  try {
+    const updates = { ALPACA_KEY_ID: debugConfig.alpacaKeyId || '', ALPACA_DATA_FEED: debugConfig.alpacaDataFeed || 'iex' };
+    if (debugConfig.alpacaSecretKey) updates.ALPACA_SECRET_KEY = debugConfig.alpacaSecretKey;
+    updateEnvFile(updates);
+  } catch {}
   alpaca = null;
   try { logEvent('alpaca.reconfigured', { feed: debugConfig.alpacaDataFeed, hasKey: !!debugConfig.alpacaKeyId }); } catch {}
   // Return masked view to avoid exposing secrets
@@ -524,7 +537,8 @@ app.post('/api/debug/test-llm', async (req, res) => {
       xai: 'https://api.x.ai/v1',
       anthropic: 'https://api.anthropic.com',
       gemini: 'https://generativelanguage.googleapis.com/v1beta',
-      qwen: 'https://dashscope.aliyuncs.com/compatible-mode/v1',
+      // Default Qwen to DashScope Intl OpenAI-compatible endpoint
+      qwen: 'https://dashscope-intl.aliyuncs.com/compatible-mode/v1',
     };
     if (!baseUrl) baseUrl = defaults[provider] || defaults.openai;
 
@@ -569,6 +583,27 @@ app.post('/api/debug/test-llm', async (req, res) => {
     return res.json({ ok: false, error: 'Unsupported provider' });
   } catch (e) {
     res.status(500).json({ error: String(e.message || e) });
+  }
+});
+
+// Test Alpaca connectivity and market data access
+app.post('/api/debug/test-alpaca', async (req, res) => {
+  try {
+    const a = await getAccount(getAlpaca());
+    let marketData = null;
+    try {
+      const symbol = process.env.BENCHMARK_SYMBOL || 'SPY';
+      const { price, source } = await getLatestPrice(getAlpaca(), symbol);
+      marketData = { symbol, price, source };
+    } catch (e2) {
+      marketData = { error: String(e2.message || e2) };
+    }
+    logEvent('debug.testAlpaca', { ok: true, account: a, marketData });
+    res.json({ ok: true, account: a, marketData });
+  } catch (e) {
+    const error = String(e.message || e);
+    logEvent('debug.testAlpaca.error', { error });
+    res.status(500).json({ ok: false, error });
   }
 });
 
