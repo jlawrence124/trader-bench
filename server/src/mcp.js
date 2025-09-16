@@ -8,6 +8,11 @@ const {
     placeOrder,
     getLatestPrice,
     getOpenOrders,
+    // options
+    getOptionPositions,
+    placeOptionOrder,
+    getOpenOptionOrders,
+    getLatestOptionPrice,
 } = require('./alpaca');
 const {
     isWithinTradingWindow,
@@ -38,7 +43,11 @@ async function startMcpServer({ name, description }) {
         'View open positions and basic account summary',
         async () => {
             const a = await getAccount(getAlpaca());
-            const p = await getPositions(getAlpaca());
+            let equities = [];
+            let options = [];
+            try { equities = await getPositions(getAlpaca()); } catch {}
+            try { options = await getOptionPositions(getAlpaca()); } catch {}
+            const p = [...equities, ...options];
             const result = { account: a, positions: p };
             logEvent('tool.viewPortfolio', { result });
             return { content: [{ type: 'text', text: JSON.stringify(result) }] };
@@ -134,7 +143,11 @@ async function startMcpServer({ name, description }) {
     );
 
     server.tool('viewOpenOrders', 'List currently open/pending orders', async () => {
-        const orders = await getOpenOrders(getAlpaca());
+        let eq = [];
+        let opt = [];
+        try { eq = await getOpenOrders(getAlpaca()); } catch {}
+        try { opt = await getOpenOptionOrders(getAlpaca()); } catch {}
+        const orders = [...eq, ...opt];
         logEvent('tool.viewOpenOrders', { result: orders });
         return { content: [{ type: 'text', text: JSON.stringify(orders) }] };
     });
@@ -397,6 +410,91 @@ async function startMcpServer({ name, description }) {
             const result = await performSearch(query, limit);
             logEvent('tool.webSearch', { args: { query, limit }, result });
             return { content: [{ type: 'text', text: JSON.stringify(result) }] };
+        },
+    );
+
+    // ---------------- Options tools ----------------
+    function buildOccSymbol(underlying, expiration, strike, right) {
+        const root = String(underlying || '').toUpperCase().replace(/[^A-Z]/g, '').slice(0, 6);
+        const d = new Date(expiration);
+        if (isNaN(d.getTime())) throw new Error('Invalid expiration date');
+        const yy = String(d.getUTCFullYear()).slice(-2);
+        const mm = String(d.getUTCMonth() + 1).padStart(2, '0');
+        const dd = String(d.getUTCDate()).padStart(2, '0');
+        const cp = String(right || '').toUpperCase().startsWith('P') ? 'P' : 'C';
+        const k = Math.round(Number(strike) * 1000);
+        const kStr = String(k).padStart(8, '0');
+        return `${root}${yy}${mm}${dd}${cp}${kStr}`;
+    }
+
+    server.tool(
+        'buildOptionContract',
+        'Build OCC option contract symbol (e.g., AAPL240920C00190000) from components.',
+        { underlying: z.string(), expiration: z.string(), strike: z.number(), right: z.enum(['C', 'P']) },
+        async ({ underlying, expiration, strike, right }) => {
+            try {
+                const symbol = buildOccSymbol(underlying, expiration, strike, right);
+                return { content: [{ type: 'text', text: JSON.stringify({ symbol }) }] };
+            } catch (e) {
+                const err = { error: String(e.message || e) };
+                return { isError: true, content: [{ type: 'text', text: JSON.stringify(err) }] };
+            }
+        },
+    );
+
+    server.tool(
+        'checkOptionPrice',
+        'Get latest option price (per contract) for an OCC contract symbol.',
+        { contract: z.string() },
+        async ({ contract }) => {
+            const { price, source, raw } = await getLatestOptionPrice(getAlpaca(), contract);
+            const result = { contract, price, source, raw };
+            logEvent('tool.checkOptionPrice', { args: { contract }, result });
+            return { content: [{ type: 'text', text: JSON.stringify(result) }] };
+        },
+    );
+
+    server.tool(
+        'buyOptions',
+        'Place a market buy for option contracts (paper only). Allowed during trading windows or market hours.',
+        { contract: z.string(), contracts: z.number().int().min(1), note: z.string().optional() },
+        async ({ contract, contracts, note }) => {
+            if (!(isWithinTradingWindow() || isWithinMarketHours())) {
+                const err = { error: 'Trading not allowed outside configured windows or market hours' };
+                logEvent('tool.buyOptions.denied', { args: { contract, contracts, note }, result: err });
+                return { isError: true, content: [{ type: 'text', text: JSON.stringify(err) }] };
+            }
+            const order = await placeOptionOrder(getAlpaca(), { contract, qty: contracts, side: 'buy' });
+            const result = { order };
+            logEvent('tool.buyOptions', { args: { contract, contracts, note }, result });
+            return { content: [{ type: 'text', text: JSON.stringify(result) }] };
+        },
+    );
+
+    server.tool(
+        'sellOptions',
+        'Place a market sell for option contracts (paper only). Allowed during trading windows or market hours.',
+        { contract: z.string(), contracts: z.number().int().min(1), note: z.string().optional() },
+        async ({ contract, contracts, note }) => {
+            if (!(isWithinTradingWindow() || isWithinMarketHours())) {
+                const err = { error: 'Trading not allowed outside configured windows or market hours' };
+                logEvent('tool.sellOptions.denied', { args: { contract, contracts, note }, result: err });
+                return { isError: true, content: [{ type: 'text', text: JSON.stringify(err) }] };
+            }
+            const order = await placeOptionOrder(getAlpaca(), { contract, qty: contracts, side: 'sell' });
+            const result = { order };
+            logEvent('tool.sellOptions', { args: { contract, contracts, note }, result });
+            return { content: [{ type: 'text', text: JSON.stringify(result) }] };
+        },
+    );
+
+    server.tool(
+        'viewOptionsPortfolio',
+        'List open option positions (contracts)',
+        async () => {
+            const p = await getOptionPositions(getAlpaca());
+            logEvent('tool.viewOptionsPortfolio', { result: p });
+            return { content: [{ type: 'text', text: JSON.stringify(p) }] };
         },
     );
 

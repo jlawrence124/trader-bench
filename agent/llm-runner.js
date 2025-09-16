@@ -455,12 +455,12 @@ async function main() {
                 messages.push({ role: 'tool', tool_call_id: tc.id, content: out });
 
                 // Track whether meaningful actions happened
-                if (name === 'buyShares' || name === 'sellShares') placedTrade = true;
+                if (name === 'buyShares' || name === 'sellShares' || name === 'buyOptions' || name === 'sellOptions') placedTrade = true;
                 if (name === 'addScratchpad') wroteScratchpad = true;
             }
             const actions = [];
-            if (names.includes('buyShares')) actions.push('trade: buy');
-            if (names.includes('sellShares')) actions.push('trade: sell');
+            if (names.includes('buyShares') || names.includes('buyOptions')) actions.push('trade: buy');
+            if (names.includes('sellShares') || names.includes('sellOptions')) actions.push('trade: sell');
             if (names.includes('addScratchpad')) actions.push('note recorded');
             if (actions.length) log(`- Actions this step: ${actions.join(', ')}`);
             continue; // let model observe tool results next iteration
@@ -477,7 +477,7 @@ async function main() {
                 messages.push({
                     role: 'user',
                     content:
-                        'Reminder: Use MCP tools only. If you intend to trade, call buyShares/sellShares now with integer qty and a short note. If not trading, call addScratchpad with observations and next steps. Do not end with text-only.',
+                        'Reminder: Use MCP tools only. If you intend to trade, call buyShares/sellShares (or buyOptions/sellOptions with contracts) now and include a short note. If not trading, call addScratchpad with observations and next steps. Do not end with text-only.',
                 });
                 continue;
             }

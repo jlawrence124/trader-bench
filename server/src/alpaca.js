@@ -121,6 +121,122 @@ async function getOpenOrders(client) {
   }));
 }
 
+// -------------------- Options helpers (paper account) --------------------
+// Note: Alpaca Options API uses separate endpoints for orders/positions, and
+// options market data is under v1beta1. We implement best-effort parsing for
+// latest quote/trade and basic order/position shapes.
+
+async function getOptionPositions(client) {
+  const url = `${client.base}/v2/options/positions`;
+  const positions = await httpsJson('GET', url, client.headers);
+  const arr = Array.isArray(positions) ? positions : [];
+  return arr.map(p => ({
+    symbol: p.symbol || p.option_symbol || p.optionSymbol,
+    qty: Number(p.qty || p.quantity || 0),
+    avgEntryPrice: Number(p.avg_entry_price || p.avgEntryPrice || 0),
+    marketPrice: Number(p.current_price || p.currentPrice || 0),
+    unrealizedPL: Number(p.unrealized_pl || p.unrealizedPL || 0),
+    side: p.side,
+    assetClass: 'option',
+  }));
+}
+
+async function placeOptionOrder(client, { contract, qty, side }) {
+  const body = {
+    symbol: contract,
+    qty: String(qty),
+    side,
+    type: 'market',
+    time_in_force: 'day',
+  };
+  const url = `${client.base}/v2/options/orders`;
+  const order = await doJson('POST', url, client.headers, body);
+  return {
+    id: order.id,
+    symbol: order.symbol || order.option_symbol,
+    side: order.side,
+    qty: Number(order.qty || order.quantity || 0),
+    status: order.status,
+    submittedAt: order.submitted_at || order.submittedAt,
+    assetClass: 'option',
+  };
+}
+
+async function getOpenOptionOrders(client) {
+  const url = `${client.base}/v2/options/orders?status=open&limit=50`;
+  const orders = await httpsJson('GET', url, client.headers);
+  const arr = Array.isArray(orders) ? orders : [];
+  return arr.map(o => ({
+    id: o.id,
+    symbol: o.symbol || o.option_symbol,
+    side: o.side,
+    qty: Number(o.qty || o.quantity || 0),
+    status: o.status,
+    submittedAt: o.submitted_at || o.submittedAt,
+    filledQty: Number(o.filled_qty || o.filledQty || 0),
+    type: o.type,
+    timeInForce: o.time_in_force || o.timeInForce,
+    assetClass: 'option',
+  }));
+}
+
+async function getLatestOptionPrice(client, contract) {
+  const base = `${client.dataBase}/v1beta1/options`;
+  const attempts = [];
+  const tryEndpoint = async (path, pick, label) => {
+    try {
+      // Options data generally defaults to SIP; do not pass equity feed param
+      const url = `${base}${path}`;
+      const json = await doJson('GET', url, client.headers);
+      const price = pick(json);
+      if (typeof price === 'number' && isFinite(price)) {
+        return { contract, price, source: label, raw: json };
+      }
+      attempts.push(`${label}:no-price`);
+      return null;
+    } catch (e) {
+      attempts.push(`${label}:${e.status||'err'}`);
+      return null;
+    }
+  };
+
+  // Try latest quote mid first
+  const q = await tryEndpoint(`/quotes/latest?symbols=${encodeURIComponent(contract)}`,
+    (j) => {
+      const bySym = j?.quotes || j?.quote || {};
+      const rec = bySym[contract] || bySym;
+      const ap = rec?.quote?.ap ?? rec?.ap;
+      const bp = rec?.quote?.bp ?? rec?.bp;
+      if (typeof ap === 'number' && typeof bp === 'number') return (ap + bp) / 2;
+      return undefined;
+    }, 'options-quote-latest');
+  if (q) return q;
+
+  // Try latest trade price
+  const t = await tryEndpoint(`/trades/latest?symbols=${encodeURIComponent(contract)}`,
+    (j) => {
+      const bySym = j?.trades || j?.trade || {};
+      const rec = bySym[contract] || bySym;
+      return rec?.trade?.p ?? rec?.p;
+    }, 'options-trade-latest');
+  if (t) return t;
+
+  // Try snapshot structure
+  const s = await tryEndpoint(`/snapshots?symbols=${encodeURIComponent(contract)}`,
+    (j) => {
+      const bySym = j?.snapshots || {};
+      const rec = bySym[contract] || {};
+      const lp = rec?.latestTrade?.p;
+      const ap = rec?.latestQuote?.ap;
+      const bp = rec?.latestQuote?.bp;
+      if (typeof ap === 'number' && typeof bp === 'number') return (ap + bp) / 2;
+      return lp;
+    }, 'options-snapshot');
+  if (s) return s;
+
+  throw new Error(`Option price lookup failed for ${contract}. Attempts: ${attempts.join(', ')}`);
+}
+
 async function fetchYahooPrice(symbol) {
   const url = `https://query1.finance.yahoo.com/v7/finance/quote?symbols=${encodeURIComponent(symbol)}`;
   const res = await fetch(url, { headers: { 'User-Agent': 'trader-bench/0.1' } });
@@ -194,4 +310,16 @@ async function getLatestPrice(client, symbol) {
   throw new Error(`Price lookup failed for ${symbol}. Attempts: ${attempts.join(', ')}`);
 }
 
-module.exports = { createClient, getAccount, getPositions, placeOrder, getLatestPrice, getOpenOrders };
+module.exports = {
+  createClient,
+  getAccount,
+  getPositions,
+  placeOrder,
+  getLatestPrice,
+  getOpenOrders,
+  // options
+  getOptionPositions,
+  placeOptionOrder,
+  getOpenOptionOrders,
+  getLatestOptionPrice,
+};

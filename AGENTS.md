@@ -7,10 +7,15 @@ This repository contains a small Node/React project used to benchmark AI trading
 - Name (advertised): `trader-bench`
 - Tools exposed:
   - `viewAccountBalance()` – equity, cash, buying power, status
-  - `viewPortfolio()` – open positions with quantities and prices
+  - `viewPortfolio()` – open positions (equities + options)
   - `checkPrice(symbol)` – current price for a ticker
   - `buyShares(symbol, quantity, note?)` – market buy (integer shares)
   - `sellShares(symbol, quantity, note?)` – market sell (integer shares)
+  - `buildOptionContract(underlying, expiration, strike, right)` – build OCC symbol like `AAPL240920C00190000`
+  - `checkOptionPrice(contract)` – latest option price per contract
+  - `buyOptions(contract, contracts, note?)` – market buy (integer contracts)
+  - `sellOptions(contract, contracts, note?)` – market sell (integer contracts)
+  - `viewOptionsPortfolio()` – list open option positions
   - `getScratchpad(limit?)` – recent notes across windows
   - `addScratchpad(message, tags?, author?)` – append a note
   - `getWindowStatus()` – current/next trading window and timezone
@@ -44,14 +49,18 @@ Goal
 Operating procedure (each session)
 1) Context: `getScratchpad(limit=50)`, then `viewAccountBalance()` and `viewPortfolio()`.
 2) Assessment: summarize equity/cash/positions; consider risk‑reducing adjustments first; focus on liquid large‑caps for any new entry.
-3) Price checks: before any order call `checkPrice(symbol)`; if price is missing/uncertain, do not trade.
-4) Sizing: `qty = floor((equity * 0.10) / price)`. If `qty < 1`, skip the trade.
+3) Price checks: before any equity order call `checkPrice(symbol)`. For options, call `checkOptionPrice(contract)`; if price is missing/uncertain, do not trade.
+4) Sizing:
+   - Shares: `qty = floor((equity * 0.10) / price)`.
+   - Options: `contracts = floor((equity * 0.10) / (price * 100))` (100x multiplier).
+   If result < 1, skip the trade.
 5) Decisions: max one or two trades per session; total new exposure ≤ 25% equity per session. Include a concise rationale in the `note` field (≤ 200 chars). If uncertain, don’t trade.
 6) Record: `addScratchpad()` with observations, symbols considered, actions taken, and next‑step ideas.
 
 Constraints and notes
 - Trades may occur during configured trading windows or regular market hours; orders outside both are rejected.
-- Market orders only; integer shares only; paper trading only.
+- Market orders only; integer shares/contracts only; paper trading only.
+- Options use OCC contract symbols (e.g., `AAPL240920C00190000`) and a 100x multiplier.
 - If any tool call fails or data is missing, avoid trading and leave a note.
 - Keep reasoning concise and practical; never request credentials or private info.
 

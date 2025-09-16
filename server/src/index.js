@@ -2,7 +2,7 @@
 require('dotenv').config({ path: require('path').join(__dirname, '..', '.env'), override: true });
 const express = require('express');
 const cors = require('cors');
-const { createClient, getAccount, getPositions, getLatestPrice } = require('./alpaca');
+const { createClient, getAccount, getPositions, getLatestPrice, getOptionPositions } = require('./alpaca');
 const { addSseClient, logEvent, readRecentLogs, DATA_DIR } = require('./log');
 const { parseWindowsFromEnv, scheduleToday, setOverrides, openAdhocWindow, clearAdhocWindow, getWindowStatus } = require('./scheduler');
 const { cumulativeReturn, maxDrawdown, sharpe } = require('./metrics');
@@ -116,7 +116,11 @@ app.get('/api/account', async (req, res) => {
 
 app.get('/api/positions', async (req, res) => {
   try {
-    const p = await getPositions(getAlpaca());
+    let equities = [];
+    let options = [];
+    try { equities = await getPositions(getAlpaca()); } catch {}
+    try { options = await getOptionPositions(getAlpaca()); } catch {}
+    const p = [...equities, ...options];
     res.json(p);
   } catch (e) {
     logEvent('positions.fetch.error', { error: String(e.message || e) });
