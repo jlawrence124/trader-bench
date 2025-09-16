@@ -34,6 +34,17 @@ export default function App() {
   const [statusTz, setStatusTz] = useState('')
 
   useEffect(() => {
+    const agentLabel = (cfg) => {
+      try {
+        if (!cfg) return ''
+        const prov = (cfg.llmProvider || '').toString().trim()
+        const model = (cfg.llmModel || '').toString().trim()
+        if (prov && model) return `${prov}: ${model}`
+        if (prov) return `${prov}`
+        if (model) return `${model}`
+        return ''
+      } catch { return '' }
+    }
     const load = async () => {
       const res = await Promise.allSettled([
         fetchJson('/api/metrics'),
@@ -50,7 +61,7 @@ export default function App() {
       if (res[4].status === 'fulfilled') setAccount(res[4].value); else console.warn('account load failed', res[4].reason)
       if (res[5].status === 'fulfilled') {
         const c = res[5].value
-        setAgent(c?.agent || '')
+        setAgent(agentLabel(c))
         if (c?.timezone) setCfgTz(c.timezone)
         if (c?.tradingWindows) setCfgWindowsCsv(c.tradingWindows)
         if (typeof c?.windowDurationMinutes === 'number') setCfgDurMin(c.windowDurationMinutes)
@@ -68,7 +79,7 @@ export default function App() {
       try { const s = await fetchJson('/api/series'); setEquity(s.equity||[]); setSpyUSD(s.spyUSD||[]) } catch {}
       try { setPositions(await fetchJson('/api/positions')) } catch {}
       try { setAccount(await fetchJson('/api/account')) } catch {}
-      try { const c = await fetchJson('/api/debug/config'); setAgent(c?.agent || ''); if (c?.timezone) setCfgTz(c.timezone); if (c?.tradingWindows) setCfgWindowsCsv(c.tradingWindows); if (typeof c?.windowDurationMinutes==='number') setCfgDurMin(c.windowDurationMinutes) } catch {}
+      try { const c = await fetchJson('/api/debug/config'); setAgent(((cfg)=>{ try { const prov=(cfg.llmProvider||'').toString().trim(); const model=(cfg.llmModel||'').toString().trim(); if (prov && model) return `${prov}:${model}`; if (prov) return `${prov}`; if (model) return `${model}`; return ''; } catch { return '' } })(c)); if (c?.timezone) setCfgTz(c.timezone); if (c?.tradingWindows) setCfgWindowsCsv(c.tradingWindows); if (typeof c?.windowDurationMinutes==='number') setCfgDurMin(c.windowDurationMinutes) } catch {}
     }, 30000)
     return () => clearInterval(id)
   }, [])

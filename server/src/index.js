@@ -25,6 +25,7 @@ const EQUITY_FILE = path.join(DATA_DIR, 'equity.jsonl');
 const BENCH_FILE = path.join(DATA_DIR, 'benchmark.jsonl');
 const SCRATCH_FILE = path.join(DATA_DIR, 'scratchpad.jsonl');
 const LOG_FILE = path.join(DATA_DIR, 'event-log.jsonl');
+const SECRETS_FILE = path.join(DATA_DIR, 'secrets.json');
 const BENCH_SYMBOL = process.env.BENCHMARK_SYMBOL || 'SPY';
 
 function appendJsonl(file, obj) {
@@ -266,12 +267,15 @@ function readDebugConfig() {
     benchmarkSymbol: process.env.BENCHMARK_SYMBOL || 'SPY',
     tradingEnabled: true,
     sandbox: false,
-    agent: process.env.AGENT || 'CodexCLI',
-    agentStartCommand: process.env.AGENT_START_CMD || '',
     agentAutoStart: String(process.env.AGENT_AUTO_START || 'false') === 'true',
     alpacaKeyId: process.env.ALPACA_KEY_ID || '',
     alpacaSecretKey: process.env.ALPACA_SECRET_KEY || '',
     alpacaDataFeed: (process.env.ALPACA_DATA_FEED || 'iex'),
+    // Built-in LLM agent config
+    llmProvider: process.env.LLM_PROVIDER || 'openai',
+    llmModel: process.env.LLM_MODEL || 'gpt-4o-mini',
+    llmBaseUrl: process.env.LLM_BASE_URL || '',
+    llmStreaming: String(process.env.LLM_STREAMING || 'true') === 'true',
   };
   if (!fs.existsSync(DEBUG_FILE)) return defaults;
   try { return { ...defaults, ...JSON.parse(fs.readFileSync(DEBUG_FILE, 'utf8')) }; } catch { return defaults; }
@@ -281,11 +285,82 @@ function writeDebugConfig(cfg) {
 }
 let debugConfig = readDebugConfig();
 
+function readSecrets() {
+  try {
+    if (!fs.existsSync(SECRETS_FILE)) return {};
+    const raw = fs.readFileSync(SECRETS_FILE, 'utf8');
+    return JSON.parse(raw || '{}');
+  } catch {
+    return {};
+  }
+}
+function writeSecrets(obj) {
+  try {
+    fs.mkdirSync(DATA_DIR, { recursive: true });
+    fs.writeFileSync(SECRETS_FILE, JSON.stringify(obj || {}, null, 2));
+  } catch {}
+}
+let secrets = readSecrets();
+
+// Provider-specific API key lookup and env management
+function providerEnvName(providerRaw) {
+  const p = String(providerRaw || '').toLowerCase();
+  if (p === 'openai' || p === 'openai-compatible') return 'OPENAI_API_KEY';
+  if (p === 'anthropic') return 'ANTHROPIC_API_KEY';
+  if (p === 'gemini') return 'GEMINI_API_KEY';
+  if (p === 'mistral') return 'MISTRAL_API_KEY';
+  if (p === 'deepseek') return 'DEEPSEEK_API_KEY';
+  if (p === 'grok' || p === 'xai') return 'XAI_API_KEY';
+  // Historically some setups used QWEN_API_KEY; prefer QWEN_API_KEY but support both downstream
+  if (p === 'qwen') return 'QWEN_API_KEY';
+  return 'LLM_API_KEY';
+}
+function getProviderApiKey(providerRaw) {
+  const name = providerEnvName(providerRaw);
+  // Try primary, then common aliases, then generic LLM_API_KEY
+  const p = String(providerRaw || '').toLowerCase();
+  const candidates = [process.env[name]];
+  if (p === 'qwen') candidates.push(process.env.QWEN_API_KEY);
+  candidates.push(process.env.LLM_API_KEY);
+  for (const v of candidates) { if (v && String(v).length) return v; }
+  return '';
+}
+function updateEnvFile(updates) {
+  try {
+    const envPath = path.join(__dirname, '..', '.env');
+    let content = '';
+    try { if (fs.existsSync(envPath)) content = fs.readFileSync(envPath, 'utf8'); } catch {}
+    const lines = content.split(/\r?\n/);
+    const out = [];
+    const set = new Set();
+    const keys = Object.keys(updates || {});
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i];
+      const m = /^(\s*#.*|\s*)$/.test(line) ? null : line.match(/^([A-Za-z_][A-Za-z0-9_]*)=(.*)$/);
+      if (m) {
+        const k = m[1];
+        if (keys.includes(k)) {
+          const v = updates[k];
+          out.push(`${k}=${v != null ? v : ''}`);
+          set.add(k);
+          continue;
+        }
+      }
+      out.push(line);
+    }
+    for (const k of keys) {
+      if (!set.has(k)) out.push(`${k}=${updates[k] != null ? updates[k] : ''}`);
+    }
+    fs.writeFileSync(envPath, out.join('\n'));
+  } catch {}
+}
+
 function maskConfig(cfg) {
   return {
     ...cfg,
     alpacaSecretSet: Boolean(cfg.alpacaSecretKey && String(cfg.alpacaSecretKey).length),
     alpacaSecretKey: cfg.alpacaSecretKey ? '********' : '',
+    llmApiKeySet: Boolean(getProviderApiKey(cfg?.llmProvider || process.env.LLM_PROVIDER)),
   };
 }
 
@@ -303,13 +378,23 @@ app.put('/api/debug/config', (req, res) => {
     benchmarkSymbol: body.benchmarkSymbol || debugConfig.benchmarkSymbol,
     tradingEnabled: Boolean(body.tradingEnabled ?? debugConfig.tradingEnabled),
     sandbox: Boolean(body.sandbox ?? debugConfig.sandbox),
-    agent: body.agent || debugConfig.agent,
-    agentStartCommand: body.agentStartCommand ?? debugConfig.agentStartCommand,
     agentAutoStart: Boolean(body.agentAutoStart ?? debugConfig.agentAutoStart),
     alpacaKeyId: body.alpacaKeyId ?? debugConfig.alpacaKeyId,
     alpacaSecretKey: (typeof body.alpacaSecretKey === 'string' && body.alpacaSecretKey !== '********' && body.alpacaSecretKey.length) ? body.alpacaSecretKey : debugConfig.alpacaSecretKey,
     alpacaDataFeed: body.alpacaDataFeed || debugConfig.alpacaDataFeed,
+    llmProvider: body.llmProvider || debugConfig.llmProvider,
+    llmModel: body.llmModel || debugConfig.llmModel,
+    llmBaseUrl: body.llmBaseUrl ?? debugConfig.llmBaseUrl,
+    llmStreaming: Boolean(body.llmStreaming ?? debugConfig.llmStreaming),
   };
+  if (typeof body.llmApiKey === 'string' && body.llmApiKey !== '********') {
+    const envName = providerEnvName(debugConfig.llmProvider || 'openai');
+    updateEnvFile({ [envName]: body.llmApiKey });
+    process.env[envName] = body.llmApiKey;
+    // Also set generic LLM_API_KEY for convenience
+    updateEnvFile({ LLM_API_KEY: body.llmApiKey });
+    process.env.LLM_API_KEY = body.llmApiKey;
+  }
   writeDebugConfig(debugConfig);
   // Apply overrides for scheduler and symbol
   setOverrides({ tz: debugConfig.timezone, tradingWindowsCsv: debugConfig.tradingWindows, durationMin: debugConfig.windowDurationMinutes });
@@ -319,6 +404,12 @@ app.put('/api/debug/config', (req, res) => {
   process.env.ALPACA_KEY_ID = debugConfig.alpacaKeyId || '';
   if (debugConfig.alpacaSecretKey) process.env.ALPACA_SECRET_KEY = debugConfig.alpacaSecretKey;
   process.env.ALPACA_DATA_FEED = debugConfig.alpacaDataFeed || 'iex';
+  // Persist Alpaca creds to server/.env for future restarts
+  try {
+    const updates = { ALPACA_KEY_ID: debugConfig.alpacaKeyId || '', ALPACA_DATA_FEED: debugConfig.alpacaDataFeed || 'iex' };
+    if (debugConfig.alpacaSecretKey) updates.ALPACA_SECRET_KEY = debugConfig.alpacaSecretKey;
+    updateEnvFile(updates);
+  } catch {}
   alpaca = null;
   try { logEvent('alpaca.reconfigured', { feed: debugConfig.alpacaDataFeed, hasKey: !!debugConfig.alpacaKeyId }); } catch {}
   // Return masked view to avoid exposing secrets
@@ -349,12 +440,19 @@ function startAgentIfConfigured(w) {
   try {
     if (agentProc) return; // already running
     if (!debugConfig.agentAutoStart) return;
-    const cmd = String(debugConfig.agentStartCommand || '').trim();
-    if (!cmd) return;
     const { spawn } = require('node:child_process');
-    const proc = spawn(cmd, { shell: true, stdio: ['ignore', 'pipe', 'pipe'] });
+    // Built-in LLM runner only
+    const env = { ...process.env, ENABLE_MCP: 'true', PORT: '0',
+      LLM_PROVIDER: debugConfig.llmProvider || 'openai',
+      LLM_MODEL: debugConfig.llmModel || 'gpt-4o-mini',
+      LLM_BASE_URL: debugConfig.llmBaseUrl || '',
+      LLM_STREAMING: String(debugConfig.llmStreaming ? 'true' : 'false'),
+      LLM_API_KEY: getProviderApiKey(debugConfig.llmProvider || process.env.LLM_PROVIDER || 'openai'),
+    };
+    const runner = path.join(__dirname, '..', '..', 'agent', 'llm-runner.js');
+    const proc = spawn(process.execPath, [runner], { stdio: ['ignore', 'pipe', 'pipe'], env });
     agentProc = proc;
-    logEvent('agent.started', { pid: proc.pid, command: cmd, window: w });
+    logEvent('agent.started', { pid: proc.pid, command: 'builtin-llm', window: w });
     proc.stdout.on('data', (chunk) => {
       const text = chunk.toString();
       text.split(/\r?\n/).forEach((line) => { if (line.trim()) logEvent('agent.stdout', { line }); });
@@ -371,6 +469,8 @@ function startAgentIfConfigured(w) {
         stopAgent('agent.exited', cw);
         logEvent('window.close', { window: cw, reason: 'agent.exited' });
         markWindowClosed(cw);
+        // If this was an ad-hoc window triggered via Debug → Run Once, clear it now
+        try { if (cw && cw.id === 'adhoc') clearAdhocWindow(); } catch {}
       }
     });
   } catch (e) {
@@ -416,6 +516,95 @@ app.post('/api/debug/placeOrder', async (req, res) => {
     }
     res.json(result);
   } catch (e) { res.status(500).json({ error: String(e.message || e) }); }
+});
+
+// Test LLM connectivity with a minimal chat call (no tools)
+app.post('/api/debug/test-llm', async (req, res) => {
+  try {
+    const provider = (debugConfig.llmProvider || 'openai').toLowerCase();
+    const model = debugConfig.llmModel || 'gpt-4o-mini';
+    const resolvedKey = getProviderApiKey(provider);
+    if (!resolvedKey) return res.status(400).json({ error: 'Missing LLM API key' });
+
+    // Defaults per provider when base URL not supplied
+    let baseUrl = (debugConfig.llmBaseUrl || '').trim();
+    const defaults = {
+      openai: 'https://api.openai.com/v1',
+      'openai-compatible': 'https://api.openai.com/v1',
+      mistral: 'https://api.mistral.ai/v1',
+      deepseek: 'https://api.deepseek.com/v1',
+      grok: 'https://api.x.ai/v1',
+      xai: 'https://api.x.ai/v1',
+      anthropic: 'https://api.anthropic.com',
+      gemini: 'https://generativelanguage.googleapis.com/v1beta',
+      // Default Qwen to DashScope Intl OpenAI-compatible endpoint
+      qwen: 'https://dashscope-intl.aliyuncs.com/compatible-mode/v1',
+    };
+    if (!baseUrl) baseUrl = defaults[provider] || defaults.openai;
+
+    // OpenAI-compatible providers
+    const isOaiLike = ['openai', 'openai-compatible', 'mistral', 'deepseek', 'grok', 'xai', 'qwen'].includes(provider);
+    if (isOaiLike) {
+      const url = `${baseUrl.replace(/\/$/, '')}/chat/completions`;
+      const body = { model, messages: [{ role: 'user', content: 'reply with OK' }] };
+      // Some models (e.g., gpt-5 family) only allow default temperature; omit to avoid errors
+      if (!(provider === 'openai' && /^gpt-5/i.test(model))) body.temperature = 0;
+      const r = await fetch(url, {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${resolvedKey}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify(body)
+      });
+      const json = await r.json().catch(()=>({}));
+      if (!r.ok) return res.status(r.status).json({ error: json?.error || json || await r.text() });
+      const content = json?.choices?.[0]?.message?.content || '';
+      return res.json({ ok: true, model: json?.model || model, content });
+    }
+
+    if (provider === 'anthropic') {
+      const url = `${baseUrl.replace(/\/$/, '')}/v1/messages`;
+      const body = { model, messages: [{ role: 'user', content: [{ type: 'text', text: 'reply with OK' }] }] };
+      const r = await fetch(url, { method: 'POST', headers: { 'x-api-key': resolvedKey, 'anthropic-version': '2023-06-01', 'content-type': 'application/json' }, body: JSON.stringify(body) });
+      const j = await r.json().catch(()=>({}));
+      if (!r.ok) return res.status(r.status).json({ error: j || await r.text() });
+      const content = (j?.content || []).filter(p=>p.type==='text').map(p=>p.text).join(' ');
+      return res.json({ ok: true, model, content });
+    }
+
+    if (provider === 'gemini') {
+      const url = `${baseUrl.replace(/\/$/, '')}/models/${encodeURIComponent(model)}:generateContent?key=${encodeURIComponent(resolvedKey)}`;
+      const body = { contents: [{ role: 'user', parts: [{ text: 'reply with OK' }] }] };
+      const r = await fetch(url, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) });
+      const j = await r.json().catch(()=>({}));
+      if (!r.ok) return res.status(r.status).json({ error: j || await r.text() });
+      const content = j?.candidates?.[0]?.content?.parts?.map(p=>p.text).filter(Boolean).join(' ') || '';
+      return res.json({ ok: true, model, content });
+    }
+
+    return res.json({ ok: false, error: 'Unsupported provider' });
+  } catch (e) {
+    res.status(500).json({ error: String(e.message || e) });
+  }
+});
+
+// Test Alpaca connectivity and market data access
+app.post('/api/debug/test-alpaca', async (req, res) => {
+  try {
+    const a = await getAccount(getAlpaca());
+    let marketData = null;
+    try {
+      const symbol = process.env.BENCHMARK_SYMBOL || 'SPY';
+      const { price, source } = await getLatestPrice(getAlpaca(), symbol);
+      marketData = { symbol, price, source };
+    } catch (e2) {
+      marketData = { error: String(e2.message || e2) };
+    }
+    logEvent('debug.testAlpaca', { ok: true, account: a, marketData });
+    res.json({ ok: true, account: a, marketData });
+  } catch (e) {
+    const error = String(e.message || e);
+    logEvent('debug.testAlpaca.error', { error });
+    res.status(500).json({ ok: false, error });
+  }
 });
 
 app.post('/api/debug/log', (req, res) => {
