@@ -211,7 +211,7 @@ async function main() {
         {
             role: 'user',
             content:
-                'Start a new trading window session. Follow the operating procedure. Use only the provided tools.',
+                'Start a trading session. You may place orders during configured windows OR regular market hours. Follow the operating procedure. Use only the provided tools.',
         },
     ];
 

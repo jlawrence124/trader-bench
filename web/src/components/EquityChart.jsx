@@ -1,8 +1,9 @@
 import React, { useMemo } from 'react'
-import { AreaChart, Area, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts'
+import { AreaChart, Area, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Legend } from 'recharts'
 
 export default function EquityChart({ equity, spyUSD }) {
-  const fmt = (ms) => new Date(ms).toLocaleTimeString([], {hour: '2-digit', minute: '2-digit'})
+  // Strict date-only ticks (e.g., "Sep 16").
+  const fmtDateTick = (ms) => new Date(ms).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })
   const fmtMoneyShort = (v) => {
     if (typeof v !== 'number' || !isFinite(v)) return ''
     const abs = Math.abs(v)
@@ -71,6 +72,9 @@ export default function EquityChart({ equity, spyUSD }) {
   return (
     <div className="card h-80">
       <div className="text-sm muted">Portfolio Value vs. SPY (USD equivalent)</div>
+      {spyCount === 0 && (
+        <div className="text-xs muted">Waiting for S&P 500 benchmark samples…</div>
+      )}
       <ResponsiveContainer width="100%" height="100%">
         <AreaChart data={data} margin={{ top: 12, right: 12, bottom: 8, left: 4 }}>
           <defs>
@@ -80,12 +84,13 @@ export default function EquityChart({ equity, spyUSD }) {
             </linearGradient>
           </defs>
           <CartesianGrid strokeDasharray="3 3" stroke="var(--grid-color, rgba(148,163,184,0.2))" />
+          <Legend verticalAlign="top" align="right" iconType="plainline" wrapperStyle={{ paddingBottom: 8 }} />
           <XAxis
             dataKey="tsNum"
             type="number"
             scale="time"
             domain={domain || ['auto','auto']}
-            tickFormatter={fmt}
+            tickFormatter={(ms) => fmtDateTick(ms)}
             minTickGap={40}
             tick={{ fontSize: 12 }}
             tickLine={false}
@@ -119,10 +124,11 @@ export default function EquityChart({ equity, spyUSD }) {
             type="monotone"
             dataKey="spyUSD"
             name="SPY (USD equiv.)"
-            stroke="#94a3b8"
-            strokeDasharray="5 5"
-            opacity={0.8}
-            dot={false}
+            stroke="#f97316" // higher contrast (orange)
+            strokeWidth={2.25}
+            strokeDasharray="6 4"
+            opacity={0.95}
+            dot={spyCount < 2 ? { r: 3, strokeWidth: 0, fill: '#f97316' } : false}
             connectNulls
           />
         </AreaChart>

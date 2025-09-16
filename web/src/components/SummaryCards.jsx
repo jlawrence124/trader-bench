@@ -13,7 +13,7 @@ export default function SummaryCards({ metrics, account }) {
   const fmtUsd = (x) => (x == null ? '—' : `$${Number(x).toLocaleString(undefined, {maximumFractionDigits: 2})}`)
   const items = [
     { label: 'Equity Return', value: metrics ? fmtPct(metrics.equityReturn) : '—' },
-    { label: 'Alpha', value: metrics ? fmtPct(metrics.alpha) : '—' },
+    { label: 'Excess Return vs S&P 500', value: metrics ? fmtPct(metrics.alpha) : '—', hint: 'Excess return vs SPY = Equity Return − SPY Return (not CAPM alpha).' },
     { label: 'Max Drawdown', value: metrics ? fmtPct(metrics.maxDrawdown) : '—' },
     { label: 'Account Equity', value: account ? fmtUsd(account.equity) : '—' },
     { label: 'Cash', value: account ? fmtUsd(account.cash) : '—' },
@@ -21,7 +21,7 @@ export default function SummaryCards({ metrics, account }) {
   return (
     <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
       {items.map((it) => (
-        <div key={it.label} className="card">
+        <div key={it.label} className="card" title={it.hint || ''}>
           <div className="text-xs uppercase tracking-wide muted">{it.label}</div>
           <div className="text-xl font-semibold mt-1 title">{it.value}</div>
         </div>

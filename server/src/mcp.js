@@ -151,10 +151,10 @@ async function startMcpServer({ name, description }) {
     );
 
     // Performance metrics vs benchmark (SPY by default)
-    server.tool(
-        'getMetrics',
-        'Get current performance metrics: equityReturn, benchReturn, alpha, maxDrawdown, sharpe.',
-        async () => {
+  server.tool(
+    'getMetrics',
+    'Get current performance metrics: equityReturn, benchReturn, alpha (excess return vs SPY), maxDrawdown, sharpe.',
+    async () => {
             const path = require('path');
             const fs = require('fs');
             function readSeries(file) {

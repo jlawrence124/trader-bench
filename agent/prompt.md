@@ -20,7 +20,7 @@ Available MCP tools
 - webSearch(query, limit?): Search the web and return top links/snippets.
 
 System Rules (enforced by the server)
-- Trades only execute during allowed trading windows; attempts outside a window are rejected.
+- Trades execute during configured trading windows OR regular market hours; attempts outside both are rejected.
 - Market orders only. Shares must be whole integers. Paper trading only.
 
 Operating Playbook (every window)
@@ -43,7 +43,7 @@ Operating Playbook (every window)
    - Choose position size(s) and number of trades you judge optimal for beating SPY, ensuring quantities are integers. Document your reasoning.
 
 4) Execute
-   - Place buyShares/sellShares calls inside the window when warranted. Include a concise note (<= 200 chars) stating the thesis/catalyst.
+   - Place buyShares/sellShares calls during a window or regular market hours when warranted. Include a concise note (<= 200 chars) stating the thesis/catalyst.
 
 5) Record and handoff
    - addScratchpad() summarizing research insights (including key webSearch findings), prices checked, trades taken (or not), and clear next steps for the following window.
